@@ -3,6 +3,52 @@ import 'package:flutter/material.dart';
 
 import '../../../app/theme.dart';
 import '../../../domain/models/models.dart';
+import '../../../domain/ops/layout_ops.dart';
+
+/// Shared paint and hit-test geometry for a group's outline and name.
+class GroupVisual {
+  GroupVisual({required this.group, required this.bounds, required this.label});
+
+  final DeskGroup group;
+  final Rect bounds;
+  final TextPainter? label;
+
+  RRect get outline =>
+      RRect.fromRectAndRadius(bounds, const Radius.circular(24));
+  Offset get labelPosition =>
+      Offset(bounds.left + 6, bounds.top - (label?.height ?? 0) - 2);
+  Rect? get labelBounds => label == null ? null : labelPosition & label!.size;
+
+  bool contains(Offset point) =>
+      outline.contains(point) || (labelBounds?.contains(point) ?? false);
+
+  static List<GroupVisual> forLayout(
+    RoomLayout layout,
+    TextLayoutCache cache,
+    double scale,
+  ) => [
+    for (final group in layout.groups)
+      if (layout.desksInGroup(group.id) case final desks when desks.isNotEmpty)
+        () {
+          final bounds = LayoutOps.boundsOf(desks).inflate(18);
+          return GroupVisual(
+            group: group,
+            bounds: bounds,
+            label: scale <= 0.22
+                ? null
+                : cache.get(
+                    group.name,
+                    TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: Color(group.colorValue),
+                    ),
+                    bounds.width - 12,
+                  ),
+          );
+        }(),
+  ];
+}
 
 /// Everything the painter needs about one desk, resolved ahead of paint so the
 /// painter never reaches back into services.
@@ -81,6 +127,7 @@ class RoomPainter extends CustomPainter {
     this.rotationHandle,
     this.showNames = true,
     this.showFacing = true,
+    this.selectedGroupId,
   });
 
   final RoomLayout layout;
@@ -98,11 +145,12 @@ class RoomPainter extends CustomPainter {
   final bool showTags;
   final bool showNames;
   final bool showFacing;
+  final String? selectedGroupId;
 
   /// Marquee rectangle in room coordinates, while the user is dragging one.
   final Rect? marquee;
 
-  /// Room-space center of the rotation handle, when a single desk is selected.
+  /// Room-space center of the selected desk or group's rotation handle.
   final Offset? rotationHandle;
 
   /// Grid lines finer than this many screen pixels are skipped, so zooming out
@@ -179,42 +227,29 @@ class RoomPainter extends CustomPainter {
 
   /// Draws a tinted halo behind each group so pods read as teams at a glance.
   void _paintGroups(Canvas canvas) {
-    for (final group in layout.groups) {
-      final desks = layout.desksInGroup(group.id);
-      if (desks.isEmpty) continue;
-
-      final bounds = desks
-          .map((d) => d.bounds)
-          .reduce((a, b) => a.expandToInclude(b))
-          .inflate(18);
+    for (final visual in GroupVisual.forLayout(layout, textCache, scale)) {
+      final group = visual.group;
+      final selected = group.id == selectedGroupId;
       final color = Color(group.colorValue);
 
       canvas
         ..drawRRect(
-          RRect.fromRectAndRadius(bounds, const Radius.circular(24)),
-          Paint()..color = color.withValues(alpha: 0.12),
+          visual.outline,
+          Paint()..color = color.withValues(alpha: selected ? 0.22 : 0.12),
         )
         ..drawRRect(
-          RRect.fromRectAndRadius(bounds, const Radius.circular(24)),
+          visual.outline,
           Paint()
             ..style = PaintingStyle.stroke
-            ..strokeWidth = 1.5 / scale
-            ..color = color.withValues(alpha: 0.55),
+            ..strokeWidth = (selected ? 3 : 1.5) / scale
+            ..color = selected
+                ? palette.selection
+                : color.withValues(alpha: 0.55),
         );
 
       // Group names are only legible past a certain zoom; below it the halo
       // colour alone carries the grouping.
-      if (scale > 0.22) {
-        final painter = textCache.get(
-          group.name,
-          TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: color),
-          bounds.width,
-        );
-        painter.paint(
-          canvas,
-          Offset(bounds.left + 6, bounds.top - painter.height - 2),
-        );
-      }
+      visual.label?.paint(canvas, visual.labelPosition);
     }
   }
 
@@ -461,6 +496,7 @@ class RoomPainter extends CustomPainter {
       old.showTags != showTags ||
       old.showNames != showNames ||
       old.showFacing != showFacing ||
+      old.selectedGroupId != selectedGroupId ||
       old.marquee != marquee ||
       old.rotationHandle != rotationHandle ||
       old.palette.scheme != palette.scheme;

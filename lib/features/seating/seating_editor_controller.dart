@@ -32,7 +32,11 @@ class SeatingEditorController extends ChangeNotifier {
          layout: layout,
          seatToStudent: seating ?? const <String, String>{},
          pinnedSeats: pinnedSeats,
-       );
+       ) {
+    _rosterIds = roster.map((student) => student.id).toSet();
+    _snapshot = _forCurrentRoster(_snapshot);
+    _workspace.addListener(_onWorkspaceChanged);
+  }
 
   /// Deep enough for a work session, bounded so a long editing run cannot
   /// grow memory without limit.
@@ -40,6 +44,46 @@ class SeatingEditorController extends ChangeNotifier {
 
   final TeacherWorkspace _workspace;
   final String _classSectionId;
+  late Set<String> _rosterIds;
+
+  @override
+  void dispose() {
+    _workspace.removeListener(_onWorkspaceChanged);
+    super.dispose();
+  }
+
+  void _onWorkspaceChanged() {
+    final next = roster.map((student) => student.id).toSet();
+    if (setEquals(next, _rosterIds)) return;
+    _rosterIds = next;
+    _snapshot = _forCurrentRoster(_snapshot);
+    // Roster changes are not seating edits and cannot be reversed with Undo.
+    for (var i = 0; i < _undo.length; i++) {
+      _undo[i] = _forCurrentRoster(_undo[i]);
+    }
+    for (var i = 0; i < _redo.length; i++) {
+      _redo[i] = _forCurrentRoster(_redo[i]);
+    }
+    if (_interactionBaseline != null)
+      _interactionBaseline = _forCurrentRoster(_interactionBaseline!);
+    if (!_rosterIds.contains(_pendingStudentId)) _pendingStudentId = null;
+    notifyListeners();
+  }
+
+  EditorSnapshot _forCurrentRoster(EditorSnapshot snapshot) {
+    final removedSeats = snapshot.seatToStudent.entries
+        .where((entry) => !_rosterIds.contains(entry.value))
+        .map((entry) => entry.key)
+        .toSet();
+    if (removedSeats.isEmpty) return snapshot;
+    return snapshot.copyWith(
+      seatToStudent: {
+        for (final entry in snapshot.seatToStudent.entries)
+          if (!removedSeats.contains(entry.key)) entry.key: entry.value,
+      },
+      pinnedSeats: snapshot.pinnedSeats.difference(removedSeats),
+    );
+  }
 
   EditorSnapshot _snapshot;
   final List<EditorSnapshot> _undo = <EditorSnapshot>[];
@@ -148,6 +192,17 @@ class SeatingEditorController extends ChangeNotifier {
   Desk? get soleSelection =>
       _selection.length == 1 ? layout.deskById(_selection.first) : null;
 
+  /// A complete group selection exposes group properties instead of a list of
+  /// unrelated desks. Partial and mixed selections still edit individual desks.
+  DeskGroup? get selectedGroup => _selection.isEmpty
+      ? null
+      : layout.groups.firstWhereOrNull(
+          (group) => setEquals(group.deskIds.toSet(), _selection),
+        );
+
+  bool get groupPositionLocked =>
+      selectedGroup != null && selectedDesks.any((desk) => desk.locked);
+
   List<Student> get roster => _workspace.rosterFor(_classSectionId);
 
   /// Roster students who do not currently have a seat.
@@ -226,6 +281,12 @@ class SeatingEditorController extends ChangeNotifier {
     _setSelection(group.deskIds.toSet());
   }
 
+  void selectGroup(String groupId, {bool additive = false}) {
+    final group = layout.groupById(groupId);
+    if (group == null) return;
+    _setSelection({if (additive) ..._selection, ...group.deskIds});
+  }
+
   /// Marquee selection. [rect] is in room coordinates and desks are tested by
   /// their rotated bounds, so a tilted desk still gets caught.
   void selectInRect(Rect rect, {bool additive = false}) {
@@ -264,7 +325,7 @@ class SeatingEditorController extends ChangeNotifier {
   void undo() {
     if (_undo.isEmpty) return;
     _redo.add(_snapshot);
-    _snapshot = _undo.removeLast();
+    _snapshot = _forCurrentRoster(_undo.removeLast());
     _pruneSelection();
     _dirty = true;
     _publishLayout();
@@ -274,7 +335,7 @@ class SeatingEditorController extends ChangeNotifier {
   void redo() {
     if (_redo.isEmpty) return;
     _undo.add(_snapshot);
-    _snapshot = _redo.removeLast();
+    _snapshot = _forCurrentRoster(_redo.removeLast());
     _pruneSelection();
     _dirty = true;
     _publishLayout();
@@ -287,7 +348,7 @@ class SeatingEditorController extends ChangeNotifier {
     if (_interactionBaseline == null) {
       _pushHistory(_snapshot);
     }
-    _snapshot = next.pruned();
+    _snapshot = _forCurrentRoster(next.pruned());
     _dirty = true;
     _pruneSelection();
     _publishLayout();
@@ -370,7 +431,9 @@ class SeatingEditorController extends ChangeNotifier {
   /// Snapping is applied to the *anchor* desk and the same correction is
   /// applied to the rest, so a multi-desk drag keeps its internal spacing.
   void moveSelectionBy(Offset delta, {String? anchorDeskId}) {
-    if (_selection.isEmpty || delta == Offset.zero) return;
+    if (_selection.isEmpty || delta == Offset.zero || groupPositionLocked) {
+      return;
+    }
     var applied = delta;
 
     if (_snapToGrid && layout.gridSize > 0) {
@@ -381,6 +444,9 @@ class SeatingEditorController extends ChangeNotifier {
       }
     }
 
+    if (selectedGroup != null) {
+      applied = _clampGroupDelta(selectedDesks, applied);
+    }
     final moved = [
       for (final d in selectedDesks)
         if (d.locked)
@@ -401,6 +467,7 @@ class SeatingEditorController extends ChangeNotifier {
   /// not from the previous frame, so snapping cannot accumulate drift over a
   /// long drag.
   void dragSelectionTo(String anchorDeskId, Offset target) {
+    if (groupPositionLocked) return;
     final baseline = _interactionBaseline ?? _snapshot;
     final anchorStart = baseline.layout.deskById(anchorDeskId);
     if (anchorStart == null) return;
@@ -408,8 +475,13 @@ class SeatingEditorController extends ChangeNotifier {
     final resolved = _snapToGrid && layout.gridSize > 0
         ? LayoutOps.snapPoint(target, layout.gridSize)
         : target;
-    final delta = resolved - anchorStart.center;
-    if (delta == Offset.zero) return;
+    var delta = resolved - anchorStart.center;
+    if (selectedGroup != null) {
+      delta = _clampGroupDelta(
+        baseline.layout.desks.where((desk) => _selection.contains(desk.id)),
+        delta,
+      );
+    }
 
     final moved = <Desk>[];
     for (final id in _selection) {
@@ -426,6 +498,19 @@ class SeatingEditorController extends ChangeNotifier {
     }
     if (moved.isEmpty) return;
     _withDesks(_merge(moved));
+  }
+
+  /// Stop the entire group at a wall, preserving spacing within the group.
+  Offset _clampGroupDelta(Iterable<Desk> desks, Offset delta) {
+    final bounds = LayoutOps.boundsOf(desks);
+    return Offset(
+      bounds.width > layout.roomWidth
+          ? 0
+          : delta.dx.clamp(-bounds.left, layout.roomWidth - bounds.right),
+      bounds.height > layout.roomHeight
+          ? 0
+          : delta.dy.clamp(-bounds.top, layout.roomHeight - bounds.bottom),
+    );
   }
 
   /// Nudges the selection, for arrow-key adjustment after a shuffle.
@@ -448,17 +533,59 @@ class SeatingEditorController extends ChangeNotifier {
   /// Sets the same rotation on every selected desk — "face all of these the
   /// same way".
   void setSelectionRotation(double degrees) {
-    if (_selection.isEmpty) return;
+    if (_selection.isEmpty || groupPositionLocked) return;
     final value = _rotationSnap.apply(degrees);
     _withDesks(
-      _merge([for (final d in selectedDesks) d.copyWith(rotation: value)]),
+      _merge([
+        for (final d in selectedDesks)
+          if (!d.locked) d.copyWith(rotation: value),
+      ]),
     );
   }
 
   /// Rotates the selection around its shared centroid, keeping a pod intact.
   void rotateSelectionBy(double degrees) {
-    if (_selection.isEmpty) return;
+    if (_selection.isEmpty || groupPositionLocked) return;
     _withDesks(_merge(LayoutOps.rotateSelection(selectedDesks, degrees)));
+  }
+
+  /// Recompute a group turn from the gesture's start, avoiding cumulative drift.
+  void rotateSelectionFromStart(double degrees) {
+    if (_selection.isEmpty || groupPositionLocked) return;
+    final baseline = _interactionBaseline ?? _snapshot;
+    final desks = baseline.layout.desks
+        .where((desk) => _selection.contains(desk.id))
+        .toList();
+    _withDesks(
+      _merge(LayoutOps.rotateSelection(desks, _rotationSnap.apply(degrees))),
+    );
+  }
+
+  void resizeSelection({double? width, double? height}) {
+    if (_selection.isEmpty) return;
+    _withDesks(
+      _merge([
+        for (final desk in selectedDesks)
+          desk.copyWith(
+            width: width == null ? null : math.max(20, width),
+            height: height == null ? null : math.max(20, height),
+          ),
+      ]),
+    );
+  }
+
+  void setSelectionShape(DeskShape shape) {
+    if (_selection.isEmpty) return;
+    _withDesks(
+      _merge([for (final desk in selectedDesks) desk.copyWith(shape: shape)]),
+    );
+  }
+
+  void setSelectionLocked(bool locked) {
+    if (_selection.isEmpty) return;
+    _withDesks(
+      _merge([for (final desk in selectedDesks) desk.copyWith(locked: locked)]),
+    );
   }
 
   void resizeDesk(String deskId, {double? width, double? height}) {
@@ -508,7 +635,7 @@ class SeatingEditorController extends ChangeNotifier {
                     .where((id) => !removed.contains(id))
                     .toList(growable: false),
               ),
-          ],
+          ].where((group) => group.deskIds.isNotEmpty).toList(),
         ),
       ),
     );
@@ -518,10 +645,22 @@ class SeatingEditorController extends ChangeNotifier {
   /// Duplicates the selection, offset slightly so the copies are visible.
   void duplicateSelection({Offset offset = const Offset(40, 40)}) {
     if (_selection.isEmpty) return;
+    final idMap = {for (final desk in selectedDesks) desk.id: newId()};
+    final groupCopies = <String, DeskGroup>{
+      for (final group in layout.groups)
+        if (group.deskIds.isNotEmpty &&
+            group.deskIds.every(_selection.contains))
+          group.id: DeskGroup.create(
+            name: '${group.name} (copy)',
+            deskIds: [for (final id in group.deskIds) idMap[id]!],
+            colorValue: group.colorValue,
+            isKaganTeam: group.isKaganTeam,
+          ),
+    };
     final copies = [
       for (final d in selectedDesks)
         Desk(
-          id: newId(),
+          id: idMap[d.id]!,
           x: d.x + offset.dx,
           y: d.y + offset.dy,
           kind: d.kind,
@@ -530,37 +669,45 @@ class SeatingEditorController extends ChangeNotifier {
           height: d.height,
           rotation: d.rotation,
           label: d.label,
+          groupId: groupCopies[d.groupId]?.id,
         ),
     ];
-    _withDesks([...layout.desks, ...copies]);
+    _apply(
+      _snapshot.copyWith(
+        layout: layout.copyWith(
+          desks: [...layout.desks, ...copies],
+          groups: [...layout.groups, ...groupCopies.values],
+        ),
+      ),
+    );
     _setSelection(copies.map((d) => d.id).toSet());
   }
 
   // --- Arrangement helpers -------------------------------------------------
 
   void alignSelection(AlignEdge edge) {
-    if (_selection.length < 2) return;
+    if (_selection.length < 2 || groupPositionLocked) return;
     _withDesks(_merge(LayoutOps.alignDesks(selectedDesks, edge)));
   }
 
   void distributeSelection(SpreadAxis axis) {
-    if (_selection.length < 3) return;
+    if (_selection.length < 3 || groupPositionLocked) return;
     _withDesks(_merge(LayoutOps.distributeEvenly(selectedDesks, axis)));
   }
 
   void spaceSelection(SpreadAxis axis, double gap) {
-    if (_selection.length < 2) return;
+    if (_selection.length < 2 || groupPositionLocked) return;
     _withDesks(_merge(LayoutOps.spaceWithGap(selectedDesks, axis, gap)));
   }
 
   void clusterSelection({double gap = 10}) {
-    if (_selection.length < 2) return;
+    if (_selection.length < 2 || groupPositionLocked) return;
     _withDesks(_merge(LayoutOps.clusterTogether(selectedDesks, gap: gap)));
   }
 
   /// Arranges the selection into a Kagan-style pod facing inward.
   void podSelection() {
-    if (_selection.length < 2) return;
+    if (_selection.length < 2 || groupPositionLocked) return;
     _withDesks(_merge(LayoutOps.arrangeAsPod(selectedDesks)));
   }
 
@@ -689,6 +836,7 @@ class SeatingEditorController extends ChangeNotifier {
   /// Seats a student, vacating whatever seat they held before so a student
   /// can never appear twice in the room.
   void assignStudent(String deskId, String studentId) {
+    if (!_rosterIds.contains(studentId)) return;
     final desk = layout.deskById(deskId);
     if (desk == null || !desk.isSeat) return;
     final next = Map<String, String>.from(seating)

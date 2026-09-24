@@ -18,6 +18,7 @@ class EditorToolbar extends StatelessWidget {
     required this.onAutoSeat,
     required this.onShuffle,
     this.onOpenPanel,
+    this.onSave,
     super.key,
   });
   final SeatingEditorController editor;
@@ -25,6 +26,7 @@ class EditorToolbar extends StatelessWidget {
   final VoidCallback onAutoSeat;
   final VoidCallback onShuffle;
   final VoidCallback? onOpenPanel;
+  final VoidCallback? onSave;
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -135,6 +137,12 @@ class EditorToolbar extends StatelessWidget {
                 onPressed: editor.canRedo ? editor.redo : null,
                 icon: const Icon(Icons.redo, size: 20),
               ),
+              if (onSave != null)
+                IconButton(
+                  tooltip: 'Save chart',
+                  onPressed: onSave,
+                  icon: const Icon(Icons.bookmark_add_outlined, size: 20),
+                ),
             ],
           ),
         ),

@@ -54,7 +54,7 @@ class RoomViewController extends ChangeNotifier {
   }
 
   /// Scales and centers the room so all of it is visible.
-  void fit(Size roomSize, {double padding = 32, bool notify = true}) {
+  void fit(Size roomSize, {double padding = 20, bool notify = true}) {
     if (_viewport.isEmpty || roomSize.isEmpty) return;
     _fitToViewport = true;
     final available = Size(

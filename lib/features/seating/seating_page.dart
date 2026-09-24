@@ -34,7 +34,11 @@ class SeatingPage extends StatefulWidget {
 }
 
 class _SeatingPageState extends State<SeatingPage> {
-  final _view = RoomViewController();
+  final _normalView = RoomViewController();
+  final _expandedView = RoomViewController();
+  bool _canvasExpanded = false;
+
+  RoomViewController get _view => _canvasExpanded ? _expandedView : _normalView;
   SeatingEditorController? _editor;
   String? _editingLayoutId;
   final _editors = <String, SeatingEditorController>{};
@@ -56,7 +60,8 @@ class _SeatingPageState extends State<SeatingPage> {
     for (final editor in _editors.values) {
       editor.dispose();
     }
-    _view.dispose();
+    _normalView.dispose();
+    _expandedView.dispose();
     super.dispose();
   }
 
@@ -104,6 +109,13 @@ class _SeatingPageState extends State<SeatingPage> {
             widget.workspace.latestAssignment(layout.id)?.lockedDeskIds ?? {},
       ),
     );
+    _normalView.fit(layout.roomSize);
+    _expandedView.fit(layout.roomSize);
+  }
+
+  void _toggleCanvas() {
+    if (!_canvasExpanded) _expandedView.fit(_editor!.layout.roomSize);
+    setState(() => _canvasExpanded = !_canvasExpanded);
   }
 
   /// Cached editors are disposed together when the page closes.
@@ -148,62 +160,73 @@ class _SeatingPageState extends State<SeatingPage> {
       builder: (context, _) => LayoutBuilder(
         builder: (context, constraints) {
           final narrow = constraints.maxWidth < 720;
-          final dockPanel = constraints.maxWidth >= 980;
+          final dockPanel = !_canvasExpanded && constraints.maxWidth >= 980;
           final designing = editor.mode == EditorMode.design;
           final unseated = editor.unseatedStudents.length;
           final seated = editor.roster.length - unseated;
           final shortage = editor.roster.length - editor.layout.seatCount;
           return Scaffold(
-            appBar: AppBar(
-              toolbarHeight: 80,
-              titleSpacing: narrow ? 16 : 24,
-              title: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Seating chart',
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  InkWell(
-                    onTap: widget.workspace.classes.length > 1
-                        ? widget.onPickClass
-                        : null,
-                    child: Text(
-                      section.name,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall,
+            appBar: _canvasExpanded
+                ? null
+                : AppBar(
+                    toolbarHeight: 64,
+                    titleSpacing: narrow ? 16 : 24,
+                    title: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Seating chart',
+                          style: Theme.of(context).textTheme.headlineSmall,
+                        ),
+                        InkWell(
+                          onTap: widget.workspace.classes.length > 1
+                              ? widget.onPickClass
+                              : null,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  widget.workspace.classLabel(section),
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ),
+                              if (widget.workspace.classes.length > 1)
+                                const Icon(Icons.arrow_drop_down, size: 18),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
+                    actions: [
+                      if (!narrow)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 16),
+                          child: Text(
+                            editor.hasUnsavedSeating
+                                ? 'Unsaved seating'
+                                : 'Seating up to date',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                      FilledButton.icon(
+                        onPressed: () => _saveAssignment(editor),
+                        icon: const Icon(Icons.bookmark_add_outlined, size: 18),
+                        label: Text(narrow ? 'Save' : 'Save chart'),
+                      ),
+                      _moreMenu(editor),
+                      const SizedBox(width: 8),
+                    ],
                   ),
-                ],
-              ),
-              actions: [
-                if (!narrow)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 16),
-                    child: Text(
-                      editor.hasUnsavedSeating
-                          ? 'Unsaved seating'
-                          : 'Seating up to date',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ),
-                FilledButton.icon(
-                  onPressed: () => _saveAssignment(editor),
-                  icon: const Icon(Icons.bookmark_add_outlined, size: 18),
-                  label: Text(narrow ? 'Save' : 'Save chart'),
-                ),
-                _moreMenu(editor),
-                const SizedBox(width: 8),
-              ],
-            ),
             body: Column(
               children: [
                 Padding(
                   padding: EdgeInsets.fromLTRB(
                     narrow ? 12 : 24,
-                    8,
+                    4,
                     narrow ? 12 : 24,
-                    14,
+                    8,
                   ),
                   child: LayoutBuilder(
                     builder: (context, bounds) {
@@ -267,6 +290,9 @@ class _SeatingPageState extends State<SeatingPage> {
                         ),
                   onAutoSeat: () => _autoSeat(editor),
                   onShuffle: () => _shuffle(editor),
+                  onSave: _canvasExpanded
+                      ? () => _saveAssignment(editor)
+                      : null,
                 ),
                 Expanded(
                   child: Row(
@@ -297,9 +323,9 @@ class _SeatingPageState extends State<SeatingPage> {
                             children: [
                               Padding(
                                 padding: const EdgeInsets.fromLTRB(
-                                  20,
-                                  14,
-                                  20,
+                                  16,
+                                  4,
+                                  12,
                                   0,
                                 ),
                                 child: Row(
@@ -319,7 +345,7 @@ class _SeatingPageState extends State<SeatingPage> {
                                         editor.pendingStudent != null
                                             ? 'Choose a seat for ${editor.pendingStudent!.fullName}'
                                             : designing
-                                            ? 'Drag desks to arrange your room. Select a desk to adjust it.'
+                                            ? 'Drag desks or group outlines to arrange your room. Click to edit.'
                                             : narrow
                                             ? 'Tap a seat to assign. Use + to zoom in.'
                                             : 'Tap a seat to assign or swap a student.',
@@ -335,6 +361,21 @@ class _SeatingPageState extends State<SeatingPage> {
                                             editor.pickStudent(null),
                                         icon: const Icon(Icons.close, size: 18),
                                       ),
+                                    const SizedBox(width: 8),
+                                    TextButton.icon(
+                                      onPressed: _toggleCanvas,
+                                      icon: Icon(
+                                        _canvasExpanded
+                                            ? Icons.fullscreen_exit
+                                            : Icons.fullscreen,
+                                        size: 20,
+                                      ),
+                                      label: Text(
+                                        _canvasExpanded
+                                            ? 'Restore view'
+                                            : 'Expand view',
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -348,6 +389,14 @@ class _SeatingPageState extends State<SeatingPage> {
                                         _openAssignSheet(editor, desk),
                                     onDeskMenu: (desk, position) =>
                                         _openDeskMenu(editor, desk, position),
+                                    onGroupTapped: dockPanel
+                                        ? null
+                                        : (group) => _openPanelSheet(
+                                            editor,
+                                            initialTab: 3,
+                                          ),
+                                    onGroupMenu: (group, position) =>
+                                        _openGroupMenu(editor, group, position),
                                   ),
                                 ),
                               ),
@@ -384,42 +433,43 @@ class _SeatingPageState extends State<SeatingPage> {
                     ],
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      top: BorderSide(color: Theme.of(context).dividerColor),
+                if (!_canvasExpanded)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        top: BorderSide(color: Theme.of(context).dividerColor),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          unseated == 0
+                              ? Icons.check_circle_outline
+                              : Icons.people_outline,
+                          size: 17,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            shortage > 0
+                                ? '$seated/${editor.roster.length} seated · Add $shortage more seats'
+                                : '$seated/${editor.roster.length} seated · ${editor.layout.seatCount - seated} open seats',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                        if (!narrow)
+                          Text(
+                            'Room edits save automatically',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                      ],
                     ),
                   ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        unseated == 0
-                            ? Icons.check_circle_outline
-                            : Icons.people_outline,
-                        size: 17,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          shortage > 0
-                              ? '$seated/${editor.roster.length} seated · Add $shortage more seats'
-                              : '$seated/${editor.roster.length} seated · ${editor.layout.seatCount - seated} open seats',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ),
-                      if (!narrow)
-                        Text(
-                          'Room edits save automatically',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                    ],
-                  ),
-                ),
               ],
             ),
           );
@@ -669,6 +719,64 @@ class _SeatingPageState extends State<SeatingPage> {
   }
 
   // --- Actions -------------------------------------------------------------
+
+  Future<void> _openGroupMenu(
+    SeatingEditorController editor,
+    DeskGroup group,
+    Offset globalPosition,
+  ) async {
+    final overlay =
+        Overlay.of(context).context.findRenderObject()! as RenderBox;
+    final action = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        globalPosition & const Size(1, 1),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        const PopupMenuItem(value: 'edit', child: Text('Edit group')),
+        PopupMenuItem(
+          value: 'rotate',
+          enabled: !editor.groupPositionLocked,
+          child: const Text('Rotate group 90°'),
+        ),
+        PopupMenuItem(
+          value: 'lock',
+          child: Text(
+            editor.groupPositionLocked
+                ? 'Unlock group position'
+                : 'Lock group position',
+          ),
+        ),
+        const PopupMenuItem(value: 'duplicate', child: Text('Duplicate group')),
+        const PopupMenuItem(value: 'ungroup', child: Text('Ungroup desks')),
+        const PopupMenuItem(
+          value: 'delete',
+          child: Text('Delete group and desks'),
+        ),
+      ],
+    );
+    if (!mounted ||
+        action == null ||
+        editor.layout.groupById(group.id) == null) {
+      return;
+    }
+    editor.selectGroup(group.id);
+    switch (action) {
+      case 'edit':
+        await _openPanelSheet(editor, initialTab: 3);
+      case 'rotate':
+        editor.rotateSelectionBy(90);
+      case 'lock':
+        editor.setSelectionLocked(!editor.groupPositionLocked);
+      case 'duplicate':
+        editor.duplicateSelection();
+      case 'ungroup':
+        editor.ungroupSelection();
+      case 'delete':
+        editor.deleteSelection();
+    }
+  }
 
   void _switchLayout(RoomLayout layout) {
     widget.workspace.setActiveLayout(widget.section!.id, layout.id);

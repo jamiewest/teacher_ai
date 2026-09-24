@@ -18,8 +18,9 @@ class TagEditorDialog extends StatefulWidget {
 
 class _TagEditorDialogState extends State<TagEditorDialog> {
   late final _label = TextEditingController(text: widget.tag?.label ?? '');
-  late final _description =
-      TextEditingController(text: widget.tag?.description ?? '');
+  late final _description = TextEditingController(
+    text: widget.tag?.description ?? '',
+  );
   late TagCategory _category = widget.tag?.category ?? TagCategory.custom;
   late SeatingHint _hint = widget.tag?.hint ?? SeatingHint.none;
   late int _color = widget.tag?.colorValue ?? kGroupColors.first;

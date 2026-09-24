@@ -4,6 +4,7 @@ import '../../app/responsive.dart';
 import '../../data/teacher_workspace.dart';
 import '../../domain/models/models.dart';
 import 'student_editor_dialog.dart';
+import 'roster_membership_dialog.dart';
 import 'tag_editor_dialog.dart';
 
 /// Students and the tags applied to them.
@@ -12,81 +13,170 @@ import 'tag_editor_dialog.dart';
 /// are class-wide knowledge the teacher builds up over time, and the seating
 /// chart is only one of the things that will read them.
 class RosterPage extends StatefulWidget {
-  const RosterPage({required this.workspace, required this.section, super.key});
+  const RosterPage({
+    required this.workspace,
+    required this.section,
+    this.onSelectClass,
+    super.key,
+  });
 
   final TeacherWorkspace workspace;
   final ClassSection? section;
+  final ValueChanged<String>? onSelectClass;
 
   @override
   State<RosterPage> createState() => _RosterPageState();
 }
 
 class _RosterPageState extends State<RosterPage> {
+  String? _filter;
+  String _query = '';
+
   @override
-  Widget build(BuildContext context) {
-    final section = widget.section;
-    if (section == null) {
-      return const Center(child: Text('No class selected.'));
+  void didUpdateWidget(RosterPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.section?.id != widget.section?.id) {
+      _filter = null;
     }
-
-    return ListenableBuilder(
-      listenable: widget.workspace,
-      builder: (context, _) {
-        final students = widget.workspace.rosterFor(section.id);
-        final tags = widget.workspace.tags;
-
-        // Wide windows show students and tags together; narrow windows tab
-        // between them.
-        if (context.isExpanded) {
-          return Scaffold(
-            appBar: AppBar(title: Text(section.name)),
-            body: Row(
-              children: [
-                Expanded(child: _studentsList(students, tags, section)),
-                const VerticalDivider(width: 1),
-                SizedBox(width: 340, child: _tagsList(tags)),
-              ],
-            ),
-            floatingActionButton: FloatingActionButton.extended(
-              onPressed: () => _editStudent(null, section),
-              icon: const Icon(Icons.person_add_alt),
-              label: const Text('Add student'),
-            ),
-          );
-        }
-
-        return DefaultTabController(
-          length: 2,
-          child: Scaffold(
-            appBar: AppBar(
-              title: Text(section.name),
-              bottom: const TabBar(
-                tabs: [Tab(text: 'Students'), Tab(text: 'Tags')],
-              ),
-            ),
-            body: TabBarView(
-              children: [
-                _studentsList(students, tags, section),
-                _tagsList(tags),
-              ],
-            ),
-            floatingActionButton: FloatingActionButton(
-              onPressed: () => _editStudent(null, section),
-              child: const Icon(Icons.person_add_alt),
-            ),
-          ),
-        );
-      },
-    );
   }
 
-  Widget _studentsList(
-    List<Student> students,
-    List<StudentTag> tags,
-    ClassSection section,
-  ) {
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: widget.workspace,
+    builder: (context, _) {
+      final workspace = widget.workspace;
+      final filter = _filter ?? widget.section?.id ?? 'all';
+      final section = workspace.classSection(filter);
+      final students =
+          (section != null
+                  ? workspace.rosterFor(section.id)
+                  : workspace.students)
+              .where(
+                (student) =>
+                    (filter != 'unassigned' ||
+                        workspace.classesForStudent(student.id).isEmpty) &&
+                    student.fullName.toLowerCase().contains(
+                      _query.toLowerCase(),
+                    ),
+              )
+              .toList();
+      final roster = Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                DropdownButtonFormField<String>(
+                  key: ValueKey(filter),
+                  initialValue:
+                      section?.id ??
+                      (filter == 'unassigned' ? 'unassigned' : 'all'),
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Period / class',
+                  ),
+                  items: [
+                    const DropdownMenuItem(
+                      value: 'all',
+                      child: Text('All students'),
+                    ),
+                    const DropdownMenuItem(
+                      value: 'unassigned',
+                      child: Text('Unassigned students'),
+                    ),
+                    for (final item in workspace.classes)
+                      DropdownMenuItem(
+                        value: item.id,
+                        child: Text(
+                          workspace.classLabel(item),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() => _filter = value);
+                    if (workspace.classSection(value) != null)
+                      widget.onSelectClass?.call(value);
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  decoration: const InputDecoration(
+                    labelText: 'Search students',
+                    prefixIcon: Icon(Icons.search),
+                  ),
+                  onChanged: (value) => setState(() => _query = value),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 12,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text('${students.length} students'),
+                    if (section != null)
+                      TextButton.icon(
+                        onPressed: () =>
+                            manageRoster(context, workspace, section),
+                        icon: const Icon(Icons.playlist_add_check),
+                        label: const Text('Manage students'),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Expanded(child: _studentsList(students, section)),
+        ],
+      );
+      if (context.isExpanded) {
+        return Scaffold(
+          appBar: AppBar(title: const Text('Roster')),
+          body: Row(
+            children: [
+              Expanded(child: roster),
+              const VerticalDivider(width: 1),
+              SizedBox(width: 340, child: _tagsList(workspace.tags)),
+            ],
+          ),
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: () => _editStudent(null, section),
+            icon: const Icon(Icons.person_add_alt),
+            label: const Text('Add student'),
+          ),
+        );
+      }
+      return DefaultTabController(
+        length: 2,
+        child: Scaffold(
+          appBar: AppBar(
+            title: const Text('Roster'),
+            bottom: const TabBar(
+              tabs: [
+                Tab(text: 'Students'),
+                Tab(text: 'Tags'),
+              ],
+            ),
+          ),
+          body: TabBarView(children: [roster, _tagsList(workspace.tags)]),
+          floatingActionButton: FloatingActionButton(
+            tooltip: 'Add student',
+            onPressed: () => _editStudent(null, section),
+            child: const Icon(Icons.person_add_alt),
+          ),
+        ),
+      );
+    },
+  );
+
+  Widget _studentsList(List<Student> students, ClassSection? section) {
     if (students.isEmpty) {
-      return const Center(child: Text('No students on this roster yet.'));
+      return const Center(
+        child: Text(
+          'No students found. Add a student or choose another roster.',
+        ),
+      );
     }
     return ListView.separated(
       padding: const EdgeInsets.only(bottom: 96),
@@ -106,6 +196,14 @@ class _RosterPageState extends State<RosterPage> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(student.gradeLevel.label),
+              Text(
+                widget.workspace.classesForStudent(student.id).isEmpty
+                    ? 'No period assigned'
+                    : widget.workspace
+                          .classesForStudent(student.id)
+                          .map(widget.workspace.classLabel)
+                          .join(' · '),
+              ),
               for (final tag in applied)
                 Chip(
                   visualDensity: VisualDensity.compact,
@@ -130,10 +228,7 @@ class _RosterPageState extends State<RosterPage> {
     return Column(
       children: [
         ListTile(
-          title: Text(
-            'Tags',
-            style: Theme.of(context).textTheme.titleSmall,
-          ),
+          title: Text('Tags', style: Theme.of(context).textTheme.titleSmall),
           subtitle: const Text('Used when shuffling, and by AI later'),
           trailing: IconButton.filledTonal(
             tooltip: 'New tag',
@@ -178,30 +273,51 @@ class _RosterPageState extends State<RosterPage> {
     );
   }
 
-  Future<void> _editStudent(Student? student, ClassSection section) async {
+  Future<void> _editStudent(Student? student, ClassSection? section) async {
     final result = await showDialog<StudentEditorResult>(
       context: context,
       builder: (context) => StudentEditorDialog(
         tags: widget.workspace.tags,
         student: student,
+        classLabels: {
+          for (final item in widget.workspace.classes)
+            item.id: widget.workspace.classLabel(item),
+        },
+        initialClassIds: student == null
+            ? {if (section != null) section.id}
+            : widget.workspace
+                  .classesForStudent(student.id)
+                  .map((item) => item.id)
+                  .toSet(),
       ),
     );
     if (result == null) return;
 
     if (result.delete) {
-      widget.workspace.deleteStudent(result.student.id);
-      return;
-    }
-
-    widget.workspace.upsertStudent(result.student);
-    // A newly created student still has to join this class's roster.
-    if (student == null) {
-      widget.workspace.upsertClass(
-        section.copyWith(
-          studentIds: [...section.studentIds, result.student.id],
+      if (!mounted) return;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('Delete ${result.student.fullName}?'),
+          content: const Text(
+            'This deletes the student from every class. To remove only a period assignment, uncheck that class in the student editor.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Delete student'),
+            ),
+          ],
         ),
       );
+      if (confirmed ?? false) widget.workspace.deleteStudent(result.student.id);
+      return;
     }
+    widget.workspace.saveStudent(result.student, classIds: result.classIds);
   }
 
   Future<void> _editTag(StudentTag? tag) async {

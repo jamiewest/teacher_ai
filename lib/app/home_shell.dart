@@ -61,8 +61,16 @@ class _HomeShellState extends State<HomeShell> {
               section: section,
               onPickClass: _pickClass,
             ),
-            RosterPage(workspace: widget.workspace, section: section),
-            SchedulePage(workspace: widget.workspace),
+            RosterPage(
+              workspace: widget.workspace,
+              section: section,
+              onSelectClass: (id) => setState(() => _classSectionId = id),
+            ),
+            SchedulePage(
+              workspace: widget.workspace,
+              onOpenRoster: (id) => _openClass(id, 1),
+              onOpenSeating: (id) => _openClass(id, 0),
+            ),
           ],
         );
 
@@ -125,12 +133,12 @@ class _HomeShellState extends State<HomeShell> {
       context: context,
       showDragHandle: true,
       builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: ListView(
+          shrinkWrap: true,
           children: [
             for (final c in classes)
               ListTile(
-                title: Text(c.name),
+                title: Text(widget.workspace.classLabel(c)),
                 subtitle: Text('${c.size} students'),
                 selected: c.id == _section?.id,
                 onTap: () => Navigator.of(context).pop(c.id),
@@ -143,6 +151,11 @@ class _HomeShellState extends State<HomeShell> {
       setState(() => _classSectionId = picked);
     }
   }
+
+  void _openClass(String classId, int destination) => setState(() {
+    _classSectionId = classId;
+    _index = destination;
+  });
 }
 
 class _Destination {

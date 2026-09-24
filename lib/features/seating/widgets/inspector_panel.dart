@@ -25,13 +25,17 @@ class InspectorPanel extends StatelessWidget {
       listenable: editor,
       builder: (context, _) {
         final sole = editor.soleSelection;
+        final group = editor.selectedGroup;
         final count = editor.selection.length;
 
         return ListView(
+          key: ValueKey(group?.id ?? sole?.id ?? 'selection-$count'),
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
           children: [
             if (count == 0)
               _RoomSection(editor: editor)
+            else if (group != null)
+              _GroupSection(editor: editor, group: group)
             else if (sole != null)
               _DeskSection(
                 editor: editor,
@@ -389,31 +393,36 @@ class _MultiSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final group = editor.selectedGroup;
+    final locked = editor.groupPositionLocked;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _SectionTitle('$count desks selected'),
+        _SectionTitle(
+          group == null ? '$count desks selected' : 'Arrange group',
+        ),
         Wrap(
           spacing: 8,
           runSpacing: 8,
           children: [
-            FilledButton.tonalIcon(
-              onPressed: () => editor.groupSelection(),
-              icon: const Icon(Icons.workspaces_outline, size: 18),
-              label: const Text('Make a group'),
-            ),
+            if (group == null)
+              FilledButton.tonalIcon(
+                onPressed: () => editor.groupSelection(),
+                icon: const Icon(Icons.workspaces_outline, size: 18),
+                label: const Text('Make a group'),
+              ),
             OutlinedButton.icon(
               onPressed: editor.ungroupSelection,
               icon: const Icon(Icons.link_off, size: 18),
               label: const Text('Ungroup'),
             ),
             OutlinedButton.icon(
-              onPressed: editor.podSelection,
+              onPressed: locked ? null : editor.podSelection,
               icon: const Icon(Icons.group_work_outlined, size: 18),
               label: const Text('Team pod'),
             ),
             OutlinedButton.icon(
-              onPressed: () => editor.clusterSelection(),
+              onPressed: locked ? null : () => editor.clusterSelection(),
               icon: const Icon(Icons.join_inner, size: 18),
               label: const Text('Pull together'),
             ),
@@ -427,7 +436,7 @@ class _MultiSection extends StatelessWidget {
             for (final edge in AlignEdge.values)
               IconButton.outlined(
                 tooltip: edge.label,
-                onPressed: () => editor.alignSelection(edge),
+                onPressed: locked ? null : () => editor.alignSelection(edge),
                 icon: Icon(_alignIconFor(edge)),
               ),
           ],
@@ -438,14 +447,14 @@ class _MultiSection extends StatelessWidget {
           spacing: 8,
           children: [
             OutlinedButton.icon(
-              onPressed: count >= 3
+              onPressed: count >= 3 && !locked
                   ? () => editor.distributeSelection(SpreadAxis.horizontal)
                   : null,
               icon: const Icon(Icons.horizontal_distribute, size: 18),
               label: const Text('Across'),
             ),
             OutlinedButton.icon(
-              onPressed: count >= 3
+              onPressed: count >= 3 && !locked
                   ? () => editor.distributeSelection(SpreadAxis.vertical)
                   : null,
               icon: const Icon(Icons.vertical_distribute, size: 18),
@@ -454,20 +463,35 @@ class _MultiSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        const _SectionTitle('Turn all of them'),
+        _SectionTitle(
+          group == null ? 'Turn all of them' : 'Rotate whole group',
+        ),
         Wrap(
           spacing: 6,
           children: [
-            for (final angle in const <double>[0, 90, 180, 270])
+            if (group == null) ...[
+              for (final angle in const <double>[0, 90, 180, 270])
+                ActionChip(
+                  label: Text('${angle.round()}°'),
+                  onPressed: () => editor.setSelectionRotation(angle),
+                ),
               ActionChip(
-                label: Text('${angle.round()}°'),
-                onPressed: () => editor.setSelectionRotation(angle),
+                avatar: const Icon(Icons.rotate_90_degrees_ccw, size: 16),
+                label: const Text('Rotate group'),
+                onPressed: () => editor.rotateSelectionBy(15),
               ),
-            ActionChip(
-              avatar: const Icon(Icons.rotate_90_degrees_ccw, size: 16),
-              label: const Text('Rotate group'),
-              onPressed: () => editor.rotateSelectionBy(15),
-            ),
+            ] else
+              for (final angle in const <double>[-90, -15, 15, 90])
+                ActionChip(
+                  avatar: Icon(
+                    angle < 0 ? Icons.rotate_left : Icons.rotate_right,
+                    size: 16,
+                  ),
+                  label: Text('${angle > 0 ? '+' : ''}${angle.round()}°'),
+                  onPressed: locked
+                      ? null
+                      : () => editor.rotateSelectionBy(angle),
+                ),
           ],
         ),
         const SizedBox(height: 16),
@@ -489,6 +513,132 @@ class _MultiSection extends StatelessWidget {
       ],
     );
   }
+}
+
+/// A group edits as a unit, while its desks remain independently selectable.
+class _GroupSection extends StatelessWidget {
+  const _GroupSection({required this.editor, required this.group});
+
+  final SeatingEditorController editor;
+  final DeskGroup group;
+
+  @override
+  Widget build(BuildContext context) {
+    final desks = editor.selectedDesks;
+    final shapes = desks.map((desk) => desk.shape).toSet();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _SectionTitle('Group properties'),
+        TextFormField(
+          key: ValueKey('group-name-${group.id}-${group.name}'),
+          initialValue: group.name,
+          decoration: const InputDecoration(
+            labelText: 'Group name',
+            isDense: true,
+          ),
+          onFieldSubmitted: (name) {
+            if (name.trim().isNotEmpty) {
+              editor.renameGroup(group.id, name.trim());
+            }
+          },
+        ),
+        const SizedBox(height: 8),
+        Text(
+          '${desks.length} desks · Drag the group outline to move together.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            const Text('Group colour'),
+            const Spacer(),
+            _GroupColorPicker(editor: editor, group: group),
+          ],
+        ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Lock group position'),
+          subtitle: Text(
+            editor.groupPositionLocked
+                ? 'Unlock to move or rotate the whole group'
+                : 'Keep all desks in place',
+          ),
+          value: editor.groupPositionLocked,
+          onChanged: editor.setSelectionLocked,
+        ),
+        const Divider(height: 24),
+        const _SectionTitle('Desk size and shape'),
+        Text(
+          'Applies to every desk in this group.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        _MeasureSlider(
+          label: 'Width',
+          value: desks.first.width,
+          min: 30,
+          max: 200,
+          onChanged: (value) => editor.resizeSelection(width: value),
+          onStart: editor.beginInteraction,
+          onEnd: editor.endInteraction,
+        ),
+        _MeasureSlider(
+          label: 'Depth',
+          value: desks.first.height,
+          min: 30,
+          max: 200,
+          onChanged: (value) => editor.resizeSelection(height: value),
+          onStart: editor.beginInteraction,
+          onEnd: editor.endInteraction,
+        ),
+        Row(
+          children: [
+            const Text('Shape'),
+            const Spacer(),
+            DropdownButton<DeskShape>(
+              value: shapes.length == 1 ? shapes.first : null,
+              hint: const Text('Mixed'),
+              items: [
+                for (final shape in DeskShape.values)
+                  DropdownMenuItem(value: shape, child: Text(shape.label)),
+              ],
+              onChanged: (shape) {
+                if (shape != null) editor.setSelectionShape(shape);
+              },
+            ),
+          ],
+        ),
+        const Divider(height: 24),
+        _MultiSection(editor: editor, count: desks.length),
+      ],
+    );
+  }
+}
+
+class _GroupColorPicker extends StatelessWidget {
+  const _GroupColorPicker({required this.editor, required this.group});
+  final SeatingEditorController editor;
+  final DeskGroup group;
+
+  @override
+  Widget build(BuildContext context) => PopupMenuButton<int>(
+    tooltip: 'Group colour',
+    icon: CircleAvatar(backgroundColor: Color(group.colorValue), radius: 10),
+    itemBuilder: (context) => [
+      for (final color in kGroupColors)
+        PopupMenuItem(
+          value: color,
+          child: Row(
+            children: [
+              CircleAvatar(backgroundColor: Color(color), radius: 9),
+              const SizedBox(width: 10),
+              Text(color == group.colorValue ? 'Current' : 'Use this'),
+            ],
+          ),
+        ),
+    ],
+    onSelected: (color) => editor.setGroupColor(group.id, color),
+  );
 }
 
 IconData _alignIconFor(AlignEdge edge) => switch (edge) {
@@ -520,29 +670,7 @@ class _GroupsSection extends StatelessWidget {
           ListTile(
             contentPadding: EdgeInsets.zero,
             dense: true,
-            leading: PopupMenuButton<int>(
-              tooltip: 'Group colour',
-              icon: CircleAvatar(
-                backgroundColor: Color(group.colorValue),
-                radius: 10,
-              ),
-              itemBuilder: (context) => [
-                for (final color in kGroupColors)
-                  PopupMenuItem(
-                    value: color,
-                    child: Row(
-                      children: [
-                        CircleAvatar(backgroundColor: Color(color), radius: 9),
-                        const SizedBox(width: 10),
-                        Text(
-                          color == group.colorValue ? 'Current' : 'Use this',
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-              onSelected: (color) => editor.setGroupColor(group.id, color),
-            ),
+            leading: _GroupColorPicker(editor: editor, group: group),
             title: Text(group.name),
             subtitle: Text(
               '${group.seatCount} seats'
@@ -553,7 +681,8 @@ class _GroupsSection extends StatelessWidget {
               icon: const Icon(Icons.edit_outlined, size: 18),
               onPressed: () => _rename(context, group),
             ),
-            onTap: () => editor.addToSelection(group.deskIds),
+            selected: editor.selectedGroup?.id == group.id,
+            onTap: () => editor.selectGroup(group.id),
           ),
       ],
     );

@@ -8,6 +8,7 @@ import '../../../app/responsive.dart';
 import '../../../app/theme.dart';
 import '../../../data/teacher_workspace.dart';
 import '../../../domain/models/models.dart';
+import '../../../domain/ops/layout_ops.dart';
 import '../room_view_controller.dart';
 import '../seating_editor_controller.dart';
 import '../seating_editor_state.dart';
@@ -28,6 +29,8 @@ class RoomCanvas extends StatefulWidget {
     required this.workspace,
     this.onSeatTapped,
     this.onDeskMenu,
+    this.onGroupTapped,
+    this.onGroupMenu,
     super.key,
   });
 
@@ -41,6 +44,8 @@ class RoomCanvas extends StatefulWidget {
 
   /// Fired on right-click or long-press.
   final void Function(Desk desk, Offset globalPosition)? onDeskMenu;
+  final void Function(DeskGroup group)? onGroupTapped;
+  final void Function(DeskGroup group, Offset globalPosition)? onGroupMenu;
 
   @override
   State<RoomCanvas> createState() => _RoomCanvasState();
@@ -57,6 +62,9 @@ class _RoomCanvasState extends State<RoomCanvas> {
   double _gestureStartScale = 1;
   Offset _gestureStartRoomFocal = Offset.zero;
   bool _additiveMarquee = false;
+  Offset? _groupRotationCenter;
+  Offset? _groupRotationHandle;
+  double _groupRotationStartAngle = 0;
 
   /// Where the finger or cursor actually went down.
   ///
@@ -130,6 +138,9 @@ class _RoomCanvasState extends State<RoomCanvas> {
                           _editor.mode == EditorMode.design && _editor.showGrid,
                       showTags: _editor.showTags,
                       showFacing: _editor.mode == EditorMode.design,
+                      selectedGroupId: _editor.mode == EditorMode.design
+                          ? _editor.selectedGroup?.id
+                          : null,
                       marquee: _marquee,
                       rotationHandle: _rotationHandlePosition(),
                     ),
@@ -187,6 +198,12 @@ class _RoomCanvasState extends State<RoomCanvas> {
   Offset? _rotationHandlePosition() {
     final desk = _editor.soleSelection;
     if (_editor.mode != EditorMode.design) return null;
+    if (_editor.selectedGroup != null) {
+      if (_editor.groupPositionLocked) return null;
+      return _groupRotationHandle ??
+          LayoutOps.boundsOf(_editor.selectedDesks).centerRight +
+              Offset(18 + _view.screenToRoomDistance(28), 0);
+    }
     if (desk == null || desk.locked) return null;
     final distance = desk.height / 2 + _view.screenToRoomDistance(28);
     final radians = desk.rotation * math.pi / 180.0;
@@ -197,6 +214,30 @@ class _RoomCanvasState extends State<RoomCanvas> {
   }
 
   // --- Pointer -------------------------------------------------------------
+
+  DeskGroup? _groupAt(Offset roomPoint) {
+    if (_editor.mode != EditorMode.design) return null;
+    for (final visual in GroupVisual.forLayout(
+      _editor.layout,
+      _textCache,
+      _view.scale,
+    ).reversed) {
+      if (visual.contains(roomPoint)) return visual.group;
+    }
+    return null;
+  }
+
+  Desk? _deskAt(Offset roomPoint) {
+    final exact = _editor.deskAt(roomPoint);
+    if (exact != null) return exact;
+    // The group's painted outline must remain clickable even when touch hit
+    // slop extends a nearby desk beyond its visible edge.
+    if (_groupAt(roomPoint) != null) return null;
+    return _editor.deskAt(
+      roomPoint,
+      padding: _view.screenToRoomDistance(_hitSlopPixels),
+    );
+  }
 
   void _onPointerSignal(PointerSignalEvent event) {
     if (event is! PointerScrollEvent) return;
@@ -215,13 +256,19 @@ class _RoomCanvasState extends State<RoomCanvas> {
       return;
     }
 
-    final desk = _editor.deskAt(
-      roomPoint,
-      padding: _view.screenToRoomDistance(_hitSlopPixels),
-    );
+    final desk = _deskAt(roomPoint);
 
     if (desk == null) {
-      _editor.clearSelection();
+      final group = _groupAt(roomPoint);
+      if (group != null) {
+        _editor.selectGroup(
+          group.id,
+          additive: HardwareKeyboard.instance.isShiftPressed,
+        );
+        widget.onGroupTapped?.call(group);
+      } else {
+        _editor.clearSelection();
+      }
       return;
     }
 
@@ -258,11 +305,15 @@ class _RoomCanvasState extends State<RoomCanvas> {
       _openMenuAt(details.localPosition, details.globalPosition);
 
   void _openMenuAt(Offset localPosition, Offset globalPosition) {
-    final desk = _editor.deskAt(
-      _view.toRoom(localPosition),
-      padding: _view.screenToRoomDistance(_hitSlopPixels),
-    );
-    if (desk == null) return;
+    final desk = _deskAt(_view.toRoom(localPosition));
+    if (desk == null) {
+      final group = _groupAt(_view.toRoom(localPosition));
+      if (group != null) {
+        _editor.selectGroup(group.id);
+        widget.onGroupMenu?.call(group, globalPosition);
+      }
+      return;
+    }
     if (!_editor.selection.contains(desk.id)) _editor.selectOnly(desk.id);
     widget.onDeskMenu?.call(desk, globalPosition);
   }
@@ -293,14 +344,16 @@ class _RoomCanvasState extends State<RoomCanvas> {
         (roomPoint - handle).distance <=
             _view.screenToRoomDistance(_handleHitRadius)) {
       _mode = _GestureMode.rotate;
+      if (_editor.selectedGroup != null) {
+        _groupRotationCenter = LayoutOps.centroidOf(_editor.selectedDesks);
+        final vector = roomPoint - _groupRotationCenter!;
+        _groupRotationStartAngle = math.atan2(vector.dy, vector.dx);
+      }
       _editor.beginInteraction();
       return;
     }
 
-    final desk = _editor.deskAt(
-      roomPoint,
-      padding: _view.screenToRoomDistance(_hitSlopPixels),
-    );
+    final desk = _deskAt(roomPoint);
 
     if (desk != null && !desk.locked) {
       // Dragging a desk that is not in the selection selects it first, so a
@@ -311,6 +364,20 @@ class _RoomCanvasState extends State<RoomCanvas> {
       _dragGrabOffset = desk.center - roomPoint;
       _editor.beginInteraction();
       return;
+    }
+
+    if (desk == null) {
+      final group = _groupAt(roomPoint);
+      if (group != null) {
+        _editor.selectGroup(group.id);
+        if (_editor.groupPositionLocked) return;
+        final anchor = _editor.selectedDesks.first;
+        _mode = _GestureMode.dragDesk;
+        _dragAnchorId = anchor.id;
+        _dragGrabOffset = anchor.center - roomPoint;
+        _editor.beginInteraction();
+        return;
+      }
     }
 
     if (_editor.tool == EditorTool.select) {
@@ -367,6 +434,18 @@ class _RoomCanvasState extends State<RoomCanvas> {
         });
 
       case _GestureMode.rotate:
+        final groupCenter = _groupRotationCenter;
+        if (groupCenter != null) {
+          final point = _view.toRoom(details.localFocalPoint);
+          final vector = point - groupCenter;
+          final degrees =
+              (math.atan2(vector.dy, vector.dx) - _groupRotationStartAngle) *
+              180 /
+              math.pi;
+          _groupRotationHandle = point;
+          _editor.rotateSelectionFromStart(degrees);
+          return;
+        }
         final desk = _editor.soleSelection;
         if (desk == null) return;
         final point = _view.toRoom(details.localFocalPoint);
@@ -393,6 +472,8 @@ class _RoomCanvasState extends State<RoomCanvas> {
       _editor.endInteraction();
     }
     _dragAnchorId = null;
+    _groupRotationCenter = null;
+    _groupRotationHandle = null;
     _dragGrabOffset = Offset.zero;
     _marqueeStart = null;
     if (_marquee != null) setState(() => _marquee = null);

@@ -5,6 +5,7 @@ import 'package:extensions/logging.dart';
 import 'package:flutter/foundation.dart';
 
 import '../domain/models/models.dart';
+import '../domain/ops/layout_presets.dart';
 import 'seed_data.dart';
 import 'teacher_repository.dart';
 import 'workspace_document.dart';
@@ -50,6 +51,124 @@ class TeacherWorkspace extends ChangeNotifier {
   ClassSection? classSection(String id) =>
       classes.firstWhereOrNull((c) => c.id == id);
   RoomLayout? layout(String id) => layouts.firstWhereOrNull((l) => l.id == id);
+  SchedulePeriod? period(String id) =>
+      periods.firstWhereOrNull((p) => p.id == id);
+
+  List<ClassSection> classesForStudent(String studentId) => classes
+      .where((section) => section.studentIds.contains(studentId))
+      .toList();
+
+  List<SchedulePeriod> periodsForClass(String classSectionId) => orderedPeriods
+      .where(
+        (period) =>
+            period.kind == PeriodKind.classTime &&
+            period.classSectionId == classSectionId,
+      )
+      .toList();
+
+  String classLabel(ClassSection section) {
+    final names = periodsForClass(
+      section.id,
+    ).map((period) => period.name).join(' / ');
+    if (names.isEmpty) return '${section.name} · Unscheduled';
+    return names == section.name ? names : '$names · ${section.name}';
+  }
+
+  /// Student identity and all class memberships change in a single write.
+  void saveStudent(Student student, {required Set<String> classIds}) {
+    _update(
+      _document.copyWith(
+        students: _upsert(students, student, (value) => value.id),
+        classes: [
+          for (final section in classes)
+            section.copyWith(
+              studentIds: {
+                ...section.studentIds.where((id) => id != student.id),
+                if (classIds.contains(section.id)) student.id,
+              }.toList(),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Replacing one roster never deletes student records or other memberships.
+  void setClassStudents(String classSectionId, Iterable<String> studentIds) {
+    final section = classSection(classSectionId);
+    if (section == null) return;
+    final knownIds = studentsById.keys.toSet();
+    upsertClass(
+      section.copyWith(
+        studentIds: studentIds.where(knownIds.contains).toSet().toList(),
+      ),
+    );
+  }
+
+  /// Create a class roster and its starting room alongside a new teaching
+  /// period, or attach the period to a roster that already exists.
+  SchedulePeriod savePeriod(
+    SchedulePeriod period, {
+    String? newClassName,
+    String? newSubjectName,
+  }) {
+    if (period.name.trim().isEmpty ||
+        period.start.minutes < 0 ||
+        period.end.minutes >= 24 * 60 ||
+        period.durationMinutes <= 0) {
+      throw ArgumentError('Enter a name and an end time after the start time.');
+    }
+    var next = period.copyWith(name: period.name.trim());
+    var nextClasses = classes;
+    var nextLayouts = layouts;
+    var nextSubjects = subjects;
+    if (period.kind.isBreak) {
+      next = next.copyWith(clearSection: true);
+    } else if (period.classSectionId == null) {
+      final name = newClassName?.trim() ?? '';
+      final subjectName = newSubjectName?.trim() ?? '';
+      if (name.isEmpty || subjectName.isEmpty) {
+        throw ArgumentError('Enter a class name and subject.');
+      }
+      final existingSubject = subjects.firstWhereOrNull(
+        (subject) => subject.name.toLowerCase() == subjectName.toLowerCase(),
+      );
+      final subject =
+          existingSubject ??
+          Subject.create(name: subjectName, area: SubjectArea.other);
+      final section = ClassSection.create(name: name, subjectId: subject.id);
+      final room = buildPresetLayout(
+        preset: 'rows',
+        name: 'Rows',
+        classSectionId: section.id,
+      );
+      nextSubjects = _upsert(subjects, subject, (value) => value.id);
+      nextClasses = [
+        ...classes,
+        section.copyWith(layoutIds: [room.id], activeLayoutId: room.id),
+      ];
+      nextLayouts = [...layouts, room];
+      next = next.copyWith(classSectionId: section.id);
+    } else if (classSection(period.classSectionId!) == null) {
+      throw ArgumentError('Choose an existing class roster.');
+    }
+    _update(
+      _document.copyWith(
+        periods: _upsert(periods, next, (value) => value.id),
+        classes: nextClasses,
+        layouts: nextLayouts,
+        subjects: nextSubjects,
+      ),
+    );
+    return next;
+  }
+
+  /// A schedule block can be removed without losing its reusable class roster,
+  /// students, room layouts, or saved seating history.
+  void deletePeriod(String periodId) => _update(
+    _document.copyWith(
+      periods: periods.where((period) => period.id != periodId).toList(),
+    ),
+  );
 
   /// Students on a section's roster, in the roster's stored order.
   List<Student> rosterFor(String classSectionId) {
@@ -63,10 +182,9 @@ class TeacherWorkspace extends ChangeNotifier {
   }
 
   /// Layouts saved for a section, newest first.
-  List<RoomLayout> layoutsFor(String classSectionId) =>
-      layouts.where((l) => l.classSectionId == classSectionId).sorted(
-        (a, b) => b.updatedAt.compareTo(a.updatedAt),
-      );
+  List<RoomLayout> layoutsFor(String classSectionId) => layouts
+      .where((l) => l.classSectionId == classSectionId)
+      .sorted((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
   /// Assignment history for a layout, newest first.
   List<SeatingAssignment> historyForLayout(String layoutId) => assignments
@@ -102,23 +220,28 @@ class TeacherWorkspace extends ChangeNotifier {
 
   // --- Mutations -----------------------------------------------------------
 
-  void upsertSubject(Subject subject) =>
-      _update(_document.copyWith(subjects: _upsert(subjects, subject, (e) => e.id)));
+  void upsertSubject(Subject subject) => _update(
+    _document.copyWith(subjects: _upsert(subjects, subject, (e) => e.id)),
+  );
 
-  void upsertStudent(Student student) =>
-      _update(_document.copyWith(students: _upsert(students, student, (e) => e.id)));
+  void upsertStudent(Student student) => _update(
+    _document.copyWith(students: _upsert(students, student, (e) => e.id)),
+  );
 
   void upsertTag(StudentTag tag) =>
       _update(_document.copyWith(tags: _upsert(tags, tag, (e) => e.id)));
 
-  void upsertClass(ClassSection section) =>
-      _update(_document.copyWith(classes: _upsert(classes, section, (e) => e.id)));
+  void upsertClass(ClassSection section) => _update(
+    _document.copyWith(classes: _upsert(classes, section, (e) => e.id)),
+  );
 
-  void upsertLayout(RoomLayout layout) =>
-      _update(_document.copyWith(layouts: _upsert(layouts, layout, (e) => e.id)));
+  void upsertLayout(RoomLayout layout) => _update(
+    _document.copyWith(layouts: _upsert(layouts, layout, (e) => e.id)),
+  );
 
-  void upsertPeriod(SchedulePeriod period) =>
-      _update(_document.copyWith(periods: _upsert(periods, period, (e) => e.id)));
+  void upsertPeriod(SchedulePeriod period) => _update(
+    _document.copyWith(periods: _upsert(periods, period, (e) => e.id)),
+  );
 
   /// Removes a tag and strips it from every student that carried it.
   void deleteTag(String tagId) {
@@ -129,7 +252,9 @@ class TeacherWorkspace extends ChangeNotifier {
           for (final s in students)
             if (s.hasTag(tagId))
               s.copyWith(
-                tagIds: s.tagIds.where((id) => id != tagId).toList(growable: false),
+                tagIds: s.tagIds
+                    .where((id) => id != tagId)
+                    .toList(growable: false),
               )
             else
               s,
@@ -142,12 +267,15 @@ class TeacherWorkspace extends ChangeNotifier {
   void deleteStudent(String studentId) {
     _update(
       _document.copyWith(
-        students: students.where((s) => s.id != studentId).toList(growable: false),
+        students: students
+            .where((s) => s.id != studentId)
+            .toList(growable: false),
         classes: [
           for (final c in classes)
             c.copyWith(
-              studentIds:
-                  c.studentIds.where((id) => id != studentId).toList(growable: false),
+              studentIds: c.studentIds
+                  .where((id) => id != studentId)
+                  .toList(growable: false),
             ),
         ],
       ),
@@ -159,14 +287,16 @@ class TeacherWorkspace extends ChangeNotifier {
     _update(
       _document.copyWith(
         layouts: layouts.where((l) => l.id != layoutId).toList(growable: false),
-        assignments:
-            assignments.where((a) => a.layoutId != layoutId).toList(growable: false),
+        assignments: assignments
+            .where((a) => a.layoutId != layoutId)
+            .toList(growable: false),
         classes: [
           for (final c in classes)
             if (c.layoutIds.contains(layoutId) || c.activeLayoutId == layoutId)
               c.copyWith(
-                layoutIds:
-                    c.layoutIds.where((id) => id != layoutId).toList(growable: false),
+                layoutIds: c.layoutIds
+                    .where((id) => id != layoutId)
+                    .toList(growable: false),
                 clearActiveLayout: c.activeLayoutId == layoutId,
               )
             else
@@ -214,8 +344,9 @@ class TeacherWorkspace extends ChangeNotifier {
 
   void deleteAssignment(String assignmentId) => _update(
     _document.copyWith(
-      assignments:
-          assignments.where((a) => a.id != assignmentId).toList(growable: false),
+      assignments: assignments
+          .where((a) => a.id != assignmentId)
+          .toList(growable: false),
     ),
   );
 
@@ -254,11 +385,7 @@ class TeacherWorkspace extends ChangeNotifier {
   }
 
   /// Replaces an entry with a matching id, or appends it when new.
-  static List<T> _upsert<T>(
-    List<T> items,
-    T value,
-    String Function(T) idOf,
-  ) {
+  static List<T> _upsert<T>(List<T> items, T value, String Function(T) idOf) {
     final id = idOf(value);
     final index = items.indexWhere((e) => idOf(e) == id);
     if (index < 0) return [...items, value];

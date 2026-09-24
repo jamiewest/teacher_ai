@@ -44,12 +44,20 @@ on screen immediately.
   actions can be undone.
 - **Design room** exposes furniture, grid, arrangement, and room properties.
   Seating mode protects furniture positions from accidental edits.
+- Click a **group name or outline** in Design room to edit the whole group.
+  Drag its outline to move it, or drag its rotation handle to turn it together.
+  Group properties include color, position locking, desk size and shape,
+  arrangement, duplication, deletion, and ungrouping. Clicking a desk still
+  selects that desk individually; group edits support undo and autosave.
 - Open the layout name to browse room previews and create a new layout from a
   preset. Each layout keeps its draft and undo history while the app is open.
 - **Save chart** records a seating arrangement and its pins in history. Room
   edits save automatically; seating drafts still need Save chart before reload.
 - Small windows use the **Students** and **Properties** buttons to open panels.
   Zoomed-out seats show initials; zoom in to read names.
+- **Expand view** gives the canvas more space and fits the room automatically.
+  Editing, student placement, zoom, and saving remain available. **Restore view**
+  brings back the panels and your previous zoom and position.
 
 ## Architecture
 

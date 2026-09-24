@@ -41,6 +41,65 @@ Future<void> pumpShell(
 }
 
 void main() {
+  for (final size in [
+    const Size(1400, 900),
+    const Size(900, 700),
+    const Size(390, 844),
+  ]) {
+    testWidgets('expanded canvas fits and restores the view at $size', (
+      tester,
+    ) async {
+      final workspace = await loadedWorkspace();
+      await pumpShell(tester, workspace, size);
+      final canvas = find.byType(RoomCanvas);
+      final normalSize = tester.getSize(canvas);
+      final normalView = tester.widget<RoomCanvas>(canvas).view;
+
+      await tester.tap(find.byTooltip('Zoom in'));
+      await tester.pumpAndSettle();
+      final previousScale = normalView.scale;
+      final previousPan = normalView.pan;
+
+      await tester.tap(find.text('Expand view'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.byType(RosterPanel), findsNothing);
+      final expandedSize = tester.getSize(canvas);
+      expect(expandedSize.height, greaterThan(normalSize.height));
+      if (size.width == 1400) {
+        expect(expandedSize.width, greaterThan(normalSize.width));
+      }
+      final expandedCanvas = tester.widget<RoomCanvas>(canvas);
+      final view = expandedCanvas.view;
+      final room = expandedCanvas.controller.layout.roomSize;
+      final roomRect = Rect.fromPoints(
+        view.toScreen(Offset.zero),
+        view.toScreen(Offset(room.width, room.height)),
+      );
+      expect(roomRect.left, greaterThanOrEqualTo(19.9));
+      expect(roomRect.top, greaterThanOrEqualTo(19.9));
+      expect(roomRect.right, lessThanOrEqualTo(expandedSize.width - 19.9));
+      expect(roomRect.bottom, lessThanOrEqualTo(expandedSize.height - 19.9));
+
+      // Seating remains editable, with the same draft and undo history.
+      await tester.tap(find.text('Seat remaining'));
+      await tester.pumpAndSettle();
+      final seating = Map.of(expandedCanvas.controller.seating);
+      expect(seating, isNotEmpty);
+      expect(find.byTooltip('Save chart'), findsOneWidget);
+
+      await tester.tap(find.text('Restore view'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(tester.getSize(canvas), normalSize);
+      final restored = tester.widget<RoomCanvas>(canvas);
+      expect(restored.view.scale, previousScale);
+      expect(restored.view.pan, previousPan);
+      expect(restored.controller.seating, seating);
+      expect(restored.controller.canUndo, isTrue);
+    });
+  }
+
   testWidgets('the seating editor renders the seeded classroom', (
     tester,
   ) async {

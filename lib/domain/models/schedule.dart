@@ -27,9 +27,19 @@ enum PeriodKind {
 /// never drags a timezone into a schedule that is purely local wall-clock.
 class TimeOfDayMinutes implements Comparable<TimeOfDayMinutes> {
   const TimeOfDayMinutes(this.minutes);
-  const TimeOfDayMinutes.at(int hour, int minute) : minutes = hour * 60 + minute;
+  const TimeOfDayMinutes.at(int hour, int minute)
+    : minutes = hour * 60 + minute;
 
   final int minutes;
+
+  static TimeOfDayMinutes? tryParse(String value) {
+    final match = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(value.trim());
+    if (match == null) return null;
+    final hour = int.parse(match[1]!);
+    final minute = int.parse(match[2]!);
+    if (hour > 23 || minute > 59) return null;
+    return TimeOfDayMinutes.at(hour, minute);
+  }
 
   int get hour => minutes ~/ 60;
   int get minute => minutes % 60;
