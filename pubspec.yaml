@@ -1,0 +1,26 @@
+name: teacher_ai
+description: "Seating chart builder and lesson plan generator for teachers."
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.10.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  collection: ^1.19.1
+  cupertino_icons: ^1.0.8
+  extensions: ^0.7.1
+  extensions_flutter: ^0.5.2
+  shared_preferences: ^2.3.5
+  uuid: ^4.5.1
+  vector_math: ^2.1.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
