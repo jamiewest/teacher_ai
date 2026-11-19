@@ -156,7 +156,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.light(),
-        home: SchedulePage(workspace: workspace),
+        home: SchedulePage(workspace: workspace, onOpenSeating: (_) {}),
       ),
     );
     await tester.pumpAndSettle();
@@ -174,5 +174,88 @@ void main() {
       find.byTooltip('Add a class period or break to your weekly schedule'),
       findsOneWidget,
     );
+
+    await tester.tap(find.text('Mon'));
+    await tester.pumpAndSettle();
+    expect(find.text('2 classes · 4 breaks'), findsOneWidget);
+    expect(find.text('Seating chart'), findsOneWidget);
+  });
+
+  testWidgets('LiveClassroom random student picker and participation pulse', (
+    tester,
+  ) async {
+    tester.view
+      ..physicalSize = const Size(1280, 900)
+      ..devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final workspace = await loadedWorkspace();
+    addTearDown(workspace.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: SeatingPage(
+          workspace: workspace,
+          section: workspace.classes.first,
+          onPickClass: () {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('0 of 24 active today'), findsOneWidget);
+    expect(find.byTooltip('Pick a random student'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Pick a random student'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add 1'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('1 of 24 active today'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('SeatingPage AI seating assistant sheet runs smart seating', (
+    tester,
+  ) async {
+    tester.view
+      ..physicalSize = const Size(1280, 900)
+      ..devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final workspace = await loadedWorkspace();
+    addTearDown(workspace.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: SeatingPage(
+          workspace: workspace,
+          section: workspace.classes.first,
+          onPickClass: () {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Edit seating'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('More chart options'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('AI seating assistant…'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('AI seating assistant'), findsOneWidget);
+    expect(find.text('Teacher AI Pro'), findsOneWidget);
+    expect(find.text('Smart-seat with tag hints'), findsOneWidget);
+
+    await tester.tap(find.text('Smart-seat with tag hints'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('AI seating assistant'), findsNothing);
+    expect(find.text('24/24 seated'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

@@ -861,6 +861,14 @@ class _SeatingPageState extends State<SeatingPage> {
       icon: const Icon(Icons.more_vert),
     ),
     menuChildren: [
+      if (editor.mode != EditorMode.design) ...[
+        MenuItemButton(
+          leadingIcon: const Icon(Icons.auto_awesome_outlined),
+          onPressed: () => _openAiAssistant(editor),
+          child: const Text('AI seating assistant…'),
+        ),
+        const Divider(height: 8),
+      ],
       MenuItemButton(
         leadingIcon: const Icon(Icons.history),
         onPressed: () => _openPanelSheet(editor, initialTab: 2),
@@ -914,6 +922,47 @@ class _SeatingPageState extends State<SeatingPage> {
   }
 
   // --- Sheets and menus ----------------------------------------------------
+
+  Future<void> _openAiAssistant(SeatingEditorController editor) async {
+    final tagsById = widget.workspace.tagsById;
+    final taggedCount = editor.roster
+        .where(
+          (student) => student.tagIds.any((id) {
+            final tag = tagsById[id];
+            return tag != null && tag.hint != SeatingHint.none;
+          }),
+        )
+        .length;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => _AiAssistantSheet(
+        rosterCount: editor.roster.length,
+        seatCount: editor.layout.seats.length,
+        pinnedCount: editor.pinnedSeats.length,
+        taggedCount: taggedCount,
+        hasMultipleGroups: editor.layout.groups.length >= 2,
+        onSmartSeat: () {
+          Navigator.of(sheetContext).pop();
+          editor.shuffleSeating();
+          _toast(
+            'Smart-seated students using tag & group rules',
+            onUndo: editor.canUndo ? editor.undo : null,
+          );
+        },
+        onRotateTeams: () {
+          Navigator.of(sheetContext).pop();
+          editor.rotateGroups();
+          _toast(
+            'Rotated table groups',
+            onUndo: editor.canUndo ? editor.undo : null,
+          );
+        },
+      ),
+    );
+  }
 
   /// Roster, layouts, history, and properties in one sheet, for windows too
   /// narrow to dock them.
@@ -1438,6 +1487,288 @@ class _EmptyState extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _AiAssistantSheet extends StatelessWidget {
+  const _AiAssistantSheet({
+    required this.rosterCount,
+    required this.seatCount,
+    required this.pinnedCount,
+    required this.taggedCount,
+    required this.hasMultipleGroups,
+    required this.onSmartSeat,
+    required this.onRotateTeams,
+  });
+
+  final int rosterCount;
+  final int seatCount;
+  final int pinnedCount;
+  final int taggedCount;
+  final bool hasMultipleGroups;
+  final VoidCallback onSmartSeat;
+  final VoidCallback onRotateTeams;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.85,
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: scheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.auto_awesome,
+                      color: scheme.onPrimaryContainer,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                'AI seating assistant',
+                                style: theme.textTheme.titleLarge,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: scheme.secondaryContainer,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                'Teacher AI Pro',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: scheme.onSecondaryContainer,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Turn student seating hints, pinned desks, and team groups into quick chart updates.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Live classroom signals',
+                        style: theme.textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _AssistantStatPill(
+                            icon: Icons.people_outline,
+                            label: '$rosterCount students',
+                          ),
+                          _AssistantStatPill(
+                            icon: Icons.event_seat_outlined,
+                            label: '$seatCount seats',
+                          ),
+                          _AssistantStatPill(
+                            icon: Icons.push_pin_outlined,
+                            label: '$pinnedCount pinned',
+                          ),
+                          _AssistantStatPill(
+                            icon: Icons.sell_outlined,
+                            label: '$taggedCount tagged with seating hints',
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'Instant smart actions',
+                        style: theme.textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Run offline rule-based seating right now using your room geometry and student tags.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      FilledButton.icon(
+                        onPressed: rosterCount == 0 || seatCount == 0
+                            ? null
+                            : onSmartSeat,
+                        icon: const Icon(Icons.auto_fix_high_outlined),
+                        label: const Text('Smart-seat with tag hints'),
+                      ),
+                      if (hasMultipleGroups) ...[
+                        const SizedBox(height: 8),
+                        FilledButton.tonalIcon(
+                          onPressed: onRotateTeams,
+                          icon: const Icon(Icons.group_work_outlined),
+                          label: const Text('Rotate Kagan teams'),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Card(
+                color: scheme.secondaryContainer.withValues(alpha: 0.45),
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.workspace_premium_outlined,
+                            size: 18,
+                            color: scheme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Teacher AI Pro · Cloud AI Tier',
+                              style: theme.textTheme.titleSmall,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      const _AiFeatureBullet(
+                        text:
+                            'Natural-language seating prompts ("keep Jordan near the front board").',
+                      ),
+                      const SizedBox(height: 4),
+                      const _AiFeatureBullet(
+                        text:
+                            'Participation-balanced Kagan table pods from live class history.',
+                      ),
+                      const SizedBox(height: 4),
+                      const _AiFeatureBullet(
+                        text:
+                            'Room and desk layout recommendations tuned to class size and walkways.',
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AssistantStatPill extends StatelessWidget {
+  const _AssistantStatPill({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: scheme.primary),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(color: scheme.onSurface),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AiFeatureBullet extends StatelessWidget {
+  const _AiFeatureBullet({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 5),
+          child: Icon(Icons.circle, size: 6, color: scheme.primary),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

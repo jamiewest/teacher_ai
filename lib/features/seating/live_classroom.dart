@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -119,6 +121,10 @@ class LiveClassroomState extends State<LiveClassroom> {
       final tomorrow = DateTime(today.year, today.month, today.day + 1);
       final week = weekStart(now);
       final weekEnd = DateTime(week.year, week.month, week.day + 7);
+      final todayScores = {
+        for (final s in widget.editor.roster) s.id: _total(s.id, today, tomorrow),
+      };
+      final activeTodayCount = todayScores.values.where((v) => v > 0).length;
       final selected = widget.editor.roster
           .where((s) => s.id == _studentId)
           .firstOrNull;
@@ -137,10 +143,7 @@ class LiveClassroomState extends State<LiveClassroom> {
                   view: _view,
                   workspace: widget.workspace,
                   readOnly: true,
-                  scores: {
-                    for (final s in widget.editor.roster)
-                      s.id: _total(s.id, today, tomorrow),
-                  },
+                  scores: todayScores,
                   onSeatTapped: (desk) =>
                       _onSeatTapped(desk, isCompactOverlay: !dockSide),
                 ),
@@ -205,7 +208,7 @@ class LiveClassroomState extends State<LiveClassroom> {
                       tapDelta: _tapDelta,
                       todayTotal: selected == null
                           ? 0
-                          : _total(selected.id, today, tomorrow),
+                          : (todayScores[selected.id] ?? 0),
                       weekTotal: selected == null
                           ? 0
                           : _total(selected.id, week, weekEnd),
@@ -213,6 +216,7 @@ class LiveClassroomState extends State<LiveClassroom> {
                       onTapModeChanged: (mode) =>
                           setState(() => _tapDelta = mode),
                       onPickStudent: _pickStudent,
+                      onPickRandom: _pickRandomStudent,
                       onClearStudent: () => setState(() => _studentId = null),
                       onScore: (delta) => _score(selected!, delta),
                       onEdit: widget.onEdit,
@@ -241,12 +245,14 @@ class LiveClassroomState extends State<LiveClassroom> {
               tapDelta: _tapDelta,
               todayTotal: selected == null
                   ? 0
-                  : _total(selected.id, today, tomorrow),
+                  : (todayScores[selected.id] ?? 0),
               weekTotal: selected == null
                   ? 0
                   : _total(selected.id, week, weekEnd),
+              activeTodayCount: activeTodayCount,
               onTapModeChanged: (mode) => setState(() => _tapDelta = mode),
               onPickStudent: _pickStudent,
+              onPickRandom: _pickRandomStudent,
               onScore: (delta) => _score(selected!, delta),
               onUndo: () {
                 widget.workspace.undoParticipation(_lastEntry!.id);
@@ -260,6 +266,36 @@ class LiveClassroomState extends State<LiveClassroom> {
       );
     },
   );
+
+  void _pickRandomStudent() {
+    final roster = widget.editor.roster;
+    if (roster.isEmpty) return;
+    final now = DateTime.now();
+    final today = schoolDate(now);
+    final tomorrow = DateTime(today.year, today.month, today.day + 1);
+    final uncalledToday = roster
+        .where((s) => _total(s.id, today, tomorrow) == 0 && s.id != _studentId)
+        .toList();
+    final others = roster.where((s) => s.id != _studentId).toList();
+    final pool = uncalledToday.isNotEmpty
+        ? uncalledToday
+        : (others.isNotEmpty ? others : roster);
+    final picked = pool[math.Random().nextInt(pool.length)];
+    HapticFeedback.selectionClick();
+    _focusStudent(picked.id);
+  }
+
+  void _focusStudent(String studentId) {
+    setState(() => _studentId = studentId);
+    for (final desk in widget.editor.layout.seats) {
+      if (widget.editor.studentAt(desk.id)?.id == studentId) {
+        widget.editor.selectOnly(desk.id);
+        if (_view.scale < 1) _view.zoomAtCenter(1 / _view.scale);
+        _view.centerOn(desk.center);
+        break;
+      }
+    }
+  }
 
   Future<void> _pickStudent() async {
     final picked = await showModalBottomSheet<Student>(
@@ -315,15 +351,7 @@ class LiveClassroomState extends State<LiveClassroom> {
       },
     );
     if (picked == null || !mounted) return;
-    setState(() => _studentId = picked.id);
-    for (final desk in widget.editor.layout.seats) {
-      if (widget.editor.studentAt(desk.id)?.id == picked.id) {
-        widget.editor.selectOnly(desk.id);
-        if (_view.scale < 1) _view.zoomAtCenter(1 / _view.scale);
-        _view.centerOn(desk.center);
-        break;
-      }
-    }
+    _focusStudent(picked.id);
   }
 
   void _showWeek(BuildContext context) {
@@ -518,6 +546,7 @@ class _MobileLiveDock extends StatelessWidget {
     required this.compact,
     required this.onTapModeChanged,
     required this.onPickStudent,
+    required this.onPickRandom,
     required this.onClearStudent,
     required this.onScore,
     required this.onEdit,
@@ -531,6 +560,7 @@ class _MobileLiveDock extends StatelessWidget {
   final bool compact;
   final ValueChanged<int> onTapModeChanged;
   final VoidCallback onPickStudent;
+  final VoidCallback onPickRandom;
   final VoidCallback onClearStudent;
   final ValueChanged<int> onScore;
   final VoidCallback onEdit;
@@ -566,6 +596,7 @@ class _MobileLiveDock extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: scheme.onSurfaceVariant,
+                          fontFeatures: const [FontFeature.tabularFigures()],
                         ),
                       ),
                     ],
@@ -586,40 +617,11 @@ class _MobileLiveDock extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 6),
-            Row(
-              children: [
-                Expanded(
-                  child: Tooltip(
-                    message: 'Deduct 1 participation point',
-                    excludeFromSemantics: true,
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(0, 40),
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                      ),
-                      onPressed: () => onScore(-1),
-                      icon: const Icon(Icons.remove, size: 18),
-                      label: const Text('Deduct 1'),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Tooltip(
-                    message: 'Add 1 participation point',
-                    excludeFromSemantics: true,
-                    child: FilledButton.icon(
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size(0, 40),
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                      ),
-                      onPressed: () => onScore(1),
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Add 1'),
-                    ),
-                  ),
-                ),
-              ],
+            _ScoringButtonsRow(
+              enabled: true,
+              height: 40,
+              horizontalPadding: 10,
+              onScore: onScore,
             ),
             const SizedBox(height: 8),
           ],
@@ -631,7 +633,7 @@ class _MobileLiveDock extends StatelessWidget {
                   style: ButtonStyle(
                     visualDensity: VisualDensity.compact,
                     padding: WidgetStatePropertyAll(
-                      EdgeInsets.symmetric(horizontal: compact ? 6 : 12),
+                      EdgeInsets.symmetric(horizontal: compact ? 4 : 12),
                     ),
                   ),
                   segments: [
@@ -661,11 +663,28 @@ class _MobileLiveDock extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 4),
+              IconButton.filledTonal(
+                tooltip: 'Pick a random student',
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints.tightFor(
+                  width: 34,
+                  height: 34,
+                ),
+                padding: EdgeInsets.zero,
+                onPressed: editor.roster.isEmpty ? null : onPickRandom,
+                icon: const Icon(Icons.casino_outlined, size: 18),
+              ),
+              const SizedBox(width: 2),
               IconButton(
                 tooltip: 'Choose student',
                 visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints.tightFor(
+                  width: 34,
+                  height: 34,
+                ),
+                padding: EdgeInsets.zero,
                 onPressed: onPickStudent,
-                icon: const Icon(Icons.people_outline),
+                icon: const Icon(Icons.people_outline, size: 20),
               ),
             ],
           ),
@@ -702,8 +721,10 @@ class _DesktopLivePanel extends StatelessWidget {
     required this.tapDelta,
     required this.todayTotal,
     required this.weekTotal,
+    required this.activeTodayCount,
     required this.onTapModeChanged,
     required this.onPickStudent,
+    required this.onPickRandom,
     required this.onScore,
     required this.onUndo,
     required this.onEdit,
@@ -717,8 +738,10 @@ class _DesktopLivePanel extends StatelessWidget {
   final int tapDelta;
   final int todayTotal;
   final int weekTotal;
+  final int activeTodayCount;
   final ValueChanged<int> onTapModeChanged;
   final VoidCallback onPickStudent;
+  final VoidCallback onPickRandom;
   final ValueChanged<int> onScore;
   final VoidCallback onUndo;
   final VoidCallback onEdit;
@@ -728,6 +751,7 @@ class _DesktopLivePanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final palette = RoomPalette.of(context);
 
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -808,6 +832,9 @@ class _DesktopLivePanel extends StatelessWidget {
                                   : 'Today: $todayTotal · This week: $weekTotal',
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: scheme.onSurfaceVariant,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
                               ),
                             ),
                           ],
@@ -815,54 +842,25 @@ class _DesktopLivePanel extends StatelessWidget {
                       ),
                       IconButton(
                         tooltip: 'Choose student',
+                        visualDensity: VisualDensity.compact,
                         onPressed: onPickStudent,
                         icon: const Icon(Icons.people_outline),
+                      ),
+                      const SizedBox(width: 2),
+                      IconButton.filledTonal(
+                        tooltip: 'Pick a random student',
+                        visualDensity: VisualDensity.compact,
+                        onPressed: editor.roster.isEmpty ? null : onPickRandom,
+                        icon: const Icon(Icons.casino_outlined, size: 18),
                       ),
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Tooltip(
-                          message: 'Deduct 1 participation point',
-                          excludeFromSemantics: true,
-                          child: OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              minimumSize: const Size(0, 44),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                              ),
-                            ),
-                            onPressed: selected == null
-                                ? null
-                                : () => onScore(-1),
-                            icon: const Icon(Icons.remove, size: 18),
-                            label: const Text('Deduct 1'),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Tooltip(
-                          message: 'Add 1 participation point',
-                          excludeFromSemantics: true,
-                          child: FilledButton.icon(
-                            style: FilledButton.styleFrom(
-                              minimumSize: const Size(0, 44),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                              ),
-                            ),
-                            onPressed: selected == null
-                                ? null
-                                : () => onScore(1),
-                            icon: const Icon(Icons.add, size: 18),
-                            label: const Text('Add 1'),
-                          ),
-                        ),
-                      ),
-                    ],
+                  _ScoringButtonsRow(
+                    enabled: selected != null,
+                    height: 44,
+                    horizontalPadding: 8,
+                    onScore: onScore,
                   ),
                 ],
               ),
@@ -908,7 +906,39 @@ class _DesktopLivePanel extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          if (editor.seating.isEmpty)
+          if (editor.roster.isNotEmpty) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: scheme.outlineVariant),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.insights_outlined,
+                    size: 16,
+                    color: activeTodayCount > 0
+                        ? palette.positiveFg
+                        : scheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '$activeTodayCount of ${editor.roster.length} active today',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: scheme.onSurface,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+          if (editor.seating.isEmpty) ...[
             Tooltip(
               message: 'Switch to Seat students to assign desks',
               excludeFromSemantics: true,
@@ -917,8 +947,9 @@ class _DesktopLivePanel extends StatelessWidget {
                 icon: const Icon(Icons.event_seat_outlined),
                 label: const Text('Set up seating'),
               ),
-            )
-          else if (editor.unseatedStudents.isNotEmpty)
+            ),
+            const SizedBox(height: 8),
+          ] else if (editor.unseatedStudents.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(
@@ -940,6 +971,69 @@ class _DesktopLivePanel extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ScoringButtonsRow extends StatelessWidget {
+  const _ScoringButtonsRow({
+    required this.enabled,
+    required this.height,
+    required this.horizontalPadding,
+    required this.onScore,
+  });
+
+  final bool enabled;
+  final double height;
+  final double horizontalPadding;
+  final ValueChanged<int> onScore;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = RoomPalette.of(context);
+    return Row(
+      children: [
+        Expanded(
+          child: Tooltip(
+            message: 'Deduct 1 participation point',
+            excludeFromSemantics: true,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                minimumSize: Size(0, height),
+                padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                backgroundColor: enabled ? palette.negativeBg : null,
+                foregroundColor: enabled ? palette.negativeFg : null,
+                side: enabled
+                    ? BorderSide(
+                        color: palette.negativeFg.withValues(alpha: 0.3),
+                      )
+                    : null,
+              ),
+              onPressed: enabled ? () => onScore(-1) : null,
+              icon: const Icon(Icons.remove, size: 18),
+              label: const Text('Deduct 1'),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Tooltip(
+            message: 'Add 1 participation point',
+            excludeFromSemantics: true,
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(
+                minimumSize: Size(0, height),
+                padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                backgroundColor: enabled ? palette.positiveBg : null,
+                foregroundColor: enabled ? palette.positiveFg : null,
+              ),
+              onPressed: enabled ? () => onScore(1) : null,
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Add 1'),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

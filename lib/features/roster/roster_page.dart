@@ -121,6 +121,8 @@ class _RosterPageState extends State<RosterPage>
         onChanged: (value) => setState(() => _query = value),
       );
 
+      final theme = Theme.of(context);
+      final scheme = theme.colorScheme;
       final roster = Column(
         children: [
           Padding(
@@ -145,7 +147,23 @@ class _RosterPageState extends State<RosterPage>
                   spacing: 12,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Text('${students.length} students'),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: scheme.secondaryContainer,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        '${students.length} students',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: scheme.onSecondaryContainer,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ),
                     if (section != null)
                       Tooltip(
                         message:
@@ -245,37 +263,73 @@ class _RosterPageState extends State<RosterPage>
         ),
       );
     }
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return ListView.separated(
       padding: const EdgeInsets.only(bottom: 96),
       itemCount: students.length,
       separatorBuilder: (_, _) => const Divider(height: 1),
       itemBuilder: (context, index) {
         final student = students[index];
+        final classes = widget.workspace.classesForStudent(student.id);
         final applied = [
           for (final id in student.tagIds) ?widget.workspace.tag(id),
         ];
         return ListTile(
-          leading: CircleAvatar(child: Text(student.initials)),
-          title: Text(student.fullName),
+          leading: CircleAvatar(
+            backgroundColor: classes.isEmpty
+                ? scheme.surfaceContainerHighest
+                : scheme.primaryContainer,
+            foregroundColor: classes.isEmpty
+                ? scheme.onSurfaceVariant
+                : scheme.onPrimaryContainer,
+            child: Text(
+              student.initials,
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: classes.isEmpty
+                    ? scheme.onSurfaceVariant
+                    : scheme.onPrimaryContainer,
+              ),
+            ),
+          ),
+          title: Text(
+            student.fullName,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           subtitle: Wrap(
             spacing: 6,
             runSpacing: 4,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Text(student.gradeLevel.label),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  student.gradeLevel.label,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
               Text(
-                widget.workspace.classesForStudent(student.id).isEmpty
+                classes.isEmpty
                     ? 'No period assigned'
-                    : widget.workspace
-                          .classesForStudent(student.id)
-                          .map(widget.workspace.classLabel)
-                          .join(' · '),
+                    : classes.map(widget.workspace.classLabel).join(' · '),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
               ),
               for (final tag in applied)
                 Chip(
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
-                  labelStyle: Theme.of(context).textTheme.labelSmall,
+                  labelStyle: theme.textTheme.labelSmall,
                   avatar: CircleAvatar(
                     backgroundColor: Color(tag.colorValue),
                     radius: 6,
@@ -330,12 +384,32 @@ class _RosterPageState extends State<RosterPage>
                     final count = widget.workspace.students
                         .where((s) => s.hasTag(tag.id))
                         .length;
+                    final tagColor = Color(tag.colorValue);
                     return ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: Color(tag.colorValue),
-                        radius: 12,
+                      leading: Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: tagColor.withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Center(
+                          child: Container(
+                            width: 14,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              color: tagColor,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
                       ),
-                      title: Text(tag.label),
+                      title: Text(
+                        tag.label,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       subtitle: Text(
                         '${tag.category.label} · $count student(s)'
                         '${tag.hint == SeatingHint.none ? '' : '\n${tag.hint.label}'}',
