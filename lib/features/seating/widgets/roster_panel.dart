@@ -81,16 +81,25 @@ class _RosterPanelState extends State<RosterPanel> {
                   Wrap(
                     spacing: 6,
                     children: [
-                      ChoiceChip(
-                        label: Text('All ${roster.length}'),
-                        selected: !_onlyUnseated,
-                        onSelected: (_) =>
-                            setState(() => _onlyUnseated = false),
+                      Tooltip(
+                        message: 'Show every student in this class',
+                        excludeFromSemantics: true,
+                        child: ChoiceChip(
+                          label: Text('All ${roster.length}'),
+                          selected: !_onlyUnseated,
+                          onSelected: (_) =>
+                              setState(() => _onlyUnseated = false),
+                        ),
                       ),
-                      ChoiceChip(
-                        label: Text('Unseated ${unseated.length}'),
-                        selected: _onlyUnseated,
-                        onSelected: (_) => setState(() => _onlyUnseated = true),
+                      Tooltip(
+                        message: 'Show only students without a seat',
+                        excludeFromSemantics: true,
+                        child: ChoiceChip(
+                          label: Text('Unseated ${unseated.length}'),
+                          selected: _onlyUnseated,
+                          onSelected: (_) =>
+                              setState(() => _onlyUnseated = true),
+                        ),
                       ),
                     ],
                   ),

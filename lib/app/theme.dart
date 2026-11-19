@@ -76,6 +76,22 @@ class AppTheme {
       segmentedButtonTheme: const SegmentedButtonThemeData(
         style: ButtonStyle(visualDensity: VisualDensity.compact),
       ),
+      tooltipTheme: TooltipThemeData(
+        waitDuration: const Duration(milliseconds: 450),
+        showDuration: const Duration(milliseconds: 2500),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        margin: const EdgeInsets.symmetric(horizontal: 12),
+        constraints: const BoxConstraints(minHeight: 28, maxWidth: 260),
+        decoration: BoxDecoration(
+          color: scheme.inverseSurface,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        textStyle: TextStyle(
+          color: scheme.onInverseSurface,
+          fontSize: 12,
+          height: 1.3,
+        ),
+      ),
     );
   }
 }

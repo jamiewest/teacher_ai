@@ -44,6 +44,13 @@ From the 2026-11-19 architecture review (ordered by severity):
 
 ## Change Log
 
+### 2026-11-19 — Add tooltip theme and seating/live classroom hover tooltips and helper text
+
+- **What**: Added a styled `TooltipThemeData` in [`lib/app/theme.dart`](lib/app/theme.dart) (`450 ms` hover wait, `2.5 s` show duration, `inverseSurface` Material styling) and added hover tooltips (`excludeFromSemantics: true` on labeled controls so accessible names stay clean) plus restrained helper captions across [`lib/features/seating/seating_page.dart`](lib/features/seating/seating_page.dart), [`lib/features/seating/live_classroom.dart`](lib/features/seating/live_classroom.dart), [`lib/features/seating/widgets/editor_toolbar.dart`](lib/features/seating/widgets/editor_toolbar.dart), [`lib/features/seating/widgets/inspector_panel.dart`](lib/features/seating/widgets/inspector_panel.dart), [`lib/features/seating/widgets/layouts_panel.dart`](lib/features/seating/widgets/layouts_panel.dart), [`lib/features/seating/widgets/roster_panel.dart`](lib/features/seating/widgets/roster_panel.dart), and [`lib/features/seating/widgets/seat_picker.dart`](lib/features/seating/widgets/seat_picker.dart).
+- **Why**: Buttons, chips, dropdowns, and icon menus lacked consistent hover explanations, and key flows (live tap modes, saving seating vs. autosaving rooms, picking students, and preset creation) benefited from concise contextual cues without cluttering the canvas.
+- **Verification**: `analyze_files` (Dart MCP) reported `No errors`; `flutter test` passed all `120` tests.
+- **Follow-ups**: Continue with Roster & Schedule tooltips/helper text and add dedicated widget tests, plus navigation/settings/cloud polish.
+
 ### 2026-11-19 — Add AGENTS.md and HANDOFF.md after architecture review
 
 - **What**: Created [`AGENTS.md`](AGENTS.md) and [`HANDOFF.md`](HANDOFF.md) at the repository root documenting the updated dual-mode Flutter + ASP.NET Core / PostgreSQL sync architecture, frontend/backend module layout, key invariants, build/test commands, architecture review findings, and mandatory incremental-commit + handoff workflow.

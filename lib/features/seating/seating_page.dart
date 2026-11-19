@@ -258,28 +258,33 @@ class _SeatingPageState extends State<SeatingPage> {
         body: const _EmptyState(
           icon: Icons.class_outlined,
           title: 'No classes yet',
-          message: 'Add a class to start building a seating chart.',
+          message:
+              'Add a teaching period in Schedule to create your first class and seating chart.',
         ),
       );
     }
     if (editor == null) {
       return Scaffold(
         appBar: AppBar(
-          title: InkWell(
-            key: const ValueKey('class-selector-pill'),
-            onTap: widget.onPickClass,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Flexible(
-                  child: Text(
-                    widget.workspace.classLabel(section),
-                    overflow: TextOverflow.ellipsis,
+          title: Tooltip(
+            message: _scheduleTooltip,
+            excludeFromSemantics: true,
+            child: InkWell(
+              key: const ValueKey('class-selector-pill'),
+              onTap: widget.onPickClass,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      widget.workspace.classLabel(section),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                ),
-                if (widget.onPickClass != null)
-                  const Icon(Icons.arrow_drop_down),
-              ],
+                  if (widget.onPickClass != null)
+                    const Icon(Icons.arrow_drop_down),
+                ],
+              ),
             ),
           ),
           actions: [
@@ -295,10 +300,14 @@ class _SeatingPageState extends State<SeatingPage> {
           icon: Icons.grid_view_outlined,
           title: 'No layout yet',
           message: 'Create a layout for ${section.name} to get started.',
-          action: FilledButton.icon(
-            onPressed: () => _createLayout(LayoutPreset.rows),
-            icon: const Icon(Icons.add),
-            label: const Text('Create a layout'),
+          action: Tooltip(
+            message: 'Start with a starter room layout you can customize',
+            excludeFromSemantics: true,
+            child: FilledButton.icon(
+              onPressed: () => _createLayout(LayoutPreset.rows),
+              icon: const Icon(Icons.add),
+              label: const Text('Create a layout'),
+            ),
           ),
         ),
       );
@@ -576,39 +585,44 @@ class _SeatingPageState extends State<SeatingPage> {
                                 ),
                               ),
                             ),
-                            InkWell(
-                              borderRadius: BorderRadius.circular(8),
-                              onTap: () =>
-                                  _openPanelSheet(editor, initialTab: 1),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 1,
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.layers_outlined,
-                                      size: 13,
-                                      color: scheme.onSurfaceVariant,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Flexible(
-                                      child: Text(
-                                        editor.layout.name,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: theme.textTheme.labelSmall
-                                            ?.copyWith(
-                                              color: scheme.onSurfaceVariant,
-                                            ),
+                            Tooltip(
+                              message:
+                                  'Switch room layout or create one from a preset',
+                              excludeFromSemantics: true,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(8),
+                                onTap: () =>
+                                    _openPanelSheet(editor, initialTab: 1),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 1,
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.layers_outlined,
+                                        size: 13,
+                                        color: scheme.onSurfaceVariant,
                                       ),
-                                    ),
-                                    const Icon(
-                                      Icons.arrow_drop_down,
-                                      size: 15,
-                                    ),
-                                  ],
+                                      const SizedBox(width: 4),
+                                      Flexible(
+                                        child: Text(
+                                          editor.layout.name,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: theme.textTheme.labelSmall
+                                              ?.copyWith(
+                                                color: scheme.onSurfaceVariant,
+                                              ),
+                                        ),
+                                      ),
+                                      const Icon(
+                                        Icons.arrow_drop_down,
+                                        size: 15,
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
@@ -692,24 +706,32 @@ class _SeatingPageState extends State<SeatingPage> {
                         ),
                         const SizedBox(width: 8),
                         Flexible(
-                          child: ActionChip(
-                            visualDensity: VisualDensity.compact,
-                            avatar: const Icon(Icons.layers_outlined, size: 16),
-                            label: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    editor.layout.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                          child: Tooltip(
+                            message:
+                                'Switch room layout or create one from a preset',
+                            excludeFromSemantics: true,
+                            child: ActionChip(
+                              visualDensity: VisualDensity.compact,
+                              avatar: const Icon(
+                                Icons.layers_outlined,
+                                size: 16,
+                              ),
+                              label: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      editor.layout.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
-                                ),
-                                const Icon(Icons.arrow_drop_down, size: 18),
-                              ],
+                                  const Icon(Icons.arrow_drop_down, size: 18),
+                                ],
+                              ),
+                              onPressed: () =>
+                                  _openPanelSheet(editor, initialTab: 1),
                             ),
-                            onPressed: () =>
-                                _openPanelSheet(editor, initialTab: 1),
                           ),
                         ),
                       ],
@@ -892,10 +914,26 @@ class _SeatingPageState extends State<SeatingPage> {
               const TabBar(
                 isScrollable: true,
                 tabs: [
-                  Tab(text: 'Roster'),
-                  Tab(text: 'Layouts'),
-                  Tab(text: 'History'),
-                  Tab(text: 'Properties'),
+                  Tooltip(
+                    message: 'Pick students to place in seats',
+                    excludeFromSemantics: true,
+                    child: Tab(text: 'Roster'),
+                  ),
+                  Tooltip(
+                    message: 'Switch between saved rooms or create a new one',
+                    excludeFromSemantics: true,
+                    child: Tab(text: 'Layouts'),
+                  ),
+                  Tooltip(
+                    message: 'Restore past saved seating charts',
+                    excludeFromSemantics: true,
+                    child: Tab(text: 'History'),
+                  ),
+                  Tooltip(
+                    message: 'Adjust room size, desks, and groups',
+                    excludeFromSemantics: true,
+                    child: Tab(text: 'Properties'),
+                  ),
                 ],
               ),
               Expanded(
@@ -1176,6 +1214,8 @@ class _SeatingPageState extends State<SeatingPage> {
       title: 'Save this seating',
       initial: '',
       hint: 'e.g. Week of Sep 22',
+      helperText:
+          'Leave blank to use today’s date. Room edits save automatically.',
       allowEmpty: true,
     );
     if (name == null) return;
@@ -1187,6 +1227,7 @@ class _SeatingPageState extends State<SeatingPage> {
     required String title,
     required String initial,
     String? hint,
+    String? helperText,
     bool allowEmpty = false,
   }) async {
     var value = initial;
@@ -1198,7 +1239,12 @@ class _SeatingPageState extends State<SeatingPage> {
           initialValue: initial,
           onChanged: (text) => value = text,
           autofocus: true,
-          decoration: InputDecoration(labelText: 'Name', hintText: hint),
+          decoration: InputDecoration(
+            labelText: 'Name',
+            hintText: hint,
+            helperText: helperText,
+            helperMaxLines: 2,
+          ),
           onFieldSubmitted: (v) => Navigator.of(context).pop(v),
         ),
         actions: [
@@ -1249,32 +1295,38 @@ class _SaveButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return FilledButton.icon(
-      style: FilledButton.styleFrom(
-        visualDensity: VisualDensity.compact,
-        padding: EdgeInsets.symmetric(
-          horizontal: compact ? 10 : 14,
-          vertical: 8,
+    return Tooltip(
+      message: hasUnsaved
+          ? 'Save this seating arrangement to history (unsaved changes)'
+          : 'Save a snapshot of this seating arrangement to history',
+      excludeFromSemantics: true,
+      child: FilledButton.icon(
+        style: FilledButton.styleFrom(
+          visualDensity: VisualDensity.compact,
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 10 : 14,
+            vertical: 8,
+          ),
         ),
-      ),
-      onPressed: onPressed,
-      icon: const Icon(Icons.bookmark_add_outlined, size: 18),
-      label: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(compact ? 'Save' : 'Save chart'),
-          if (hasUnsaved) ...[
-            const SizedBox(width: 6),
-            Container(
-              width: 7,
-              height: 7,
-              decoration: BoxDecoration(
-                color: scheme.onPrimary,
-                shape: BoxShape.circle,
+        onPressed: onPressed,
+        icon: const Icon(Icons.bookmark_add_outlined, size: 18),
+        label: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(compact ? 'Save' : 'Save chart'),
+            if (hasUnsaved) ...[
+              const SizedBox(width: 6),
+              Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  color: scheme.onPrimary,
+                  shape: BoxShape.circle,
+                ),
               ),
-            ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -1301,29 +1353,35 @@ class _SeatCountPill extends StatelessWidget {
         ? (compact ? '+$shortage seats' : 'Add $shortage more seats')
         : '$seated/$rosterCount seated';
 
-    return FloatingPillSurface(
-      color: warn ? scheme.errorContainer : null,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            warn
-                ? Icons.warning_amber_rounded
-                : seated == rosterCount
-                ? Icons.check_circle_outline
-                : Icons.people_outline,
-            size: 15,
-            color: warn ? scheme.onErrorContainer : scheme.primary,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            text,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: warn ? scheme.onErrorContainer : scheme.onSurface,
+    return Tooltip(
+      message: warn
+          ? '$shortage more student seats needed — add desks in Design room'
+          : '$seated of $rosterCount students seated in this layout',
+      excludeFromSemantics: true,
+      child: FloatingPillSurface(
+        color: warn ? scheme.errorContainer : null,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              warn
+                  ? Icons.warning_amber_rounded
+                  : seated == rosterCount
+                  ? Icons.check_circle_outline
+                  : Icons.people_outline,
+              size: 15,
+              color: warn ? scheme.onErrorContainer : scheme.primary,
             ),
-          ),
-        ],
+            const SizedBox(width: 6),
+            Text(
+              text,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: warn ? scheme.onErrorContainer : scheme.onSurface,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -65,19 +65,27 @@ class _SeatPickerState extends State<SeatPicker> {
               if (current != null) ...[
                 SwitchListTile(
                   title: const Text('Keep this seat during shuffles'),
+                  subtitle: const Text(
+                    'Pinned students stay put when you shuffle',
+                  ),
                   secondary: const Icon(Icons.push_pin_outlined),
                   value: editor.isPinned(widget.desk.id),
                   onChanged: (_) => editor.togglePinned(widget.desk.id),
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: TextButton.icon(
-                    onPressed: () {
-                      editor.clearSeat(widget.desk.id);
-                      Navigator.of(context).pop();
-                    },
-                    icon: const Icon(Icons.person_remove_outlined),
-                    label: const Text('Remove from seat'),
+                  child: Tooltip(
+                    message:
+                        'Clear this seat and return the student to the unseated list',
+                    excludeFromSemantics: true,
+                    child: TextButton.icon(
+                      onPressed: () {
+                        editor.clearSeat(widget.desk.id);
+                        Navigator.of(context).pop();
+                      },
+                      icon: const Icon(Icons.person_remove_outlined),
+                      label: const Text('Remove from seat'),
+                    ),
                   ),
                 ),
               ],

@@ -124,26 +124,32 @@ class _RoomSection extends StatelessWidget {
           children: [
             const Text('Grid'),
             const Spacer(),
-            DropdownButton<double>(
-              value: _gridOptions.contains(layout.gridSize)
-                  ? layout.gridSize
-                  : _gridOptions.first,
-              isDense: true,
-              items: [
-                for (final size in _gridOptions)
-                  DropdownMenuItem(
-                    value: size,
-                    child: Text(size == 0 ? 'Off' : '${size.round()} cm'),
-                  ),
-              ],
-              onChanged: (v) => v == null ? null : editor.setGridSize(v),
+            Tooltip(
+              message: 'Snap spacing when dragging desks',
+              excludeFromSemantics: true,
+              child: DropdownButton<double>(
+                value: _gridOptions.contains(layout.gridSize)
+                    ? layout.gridSize
+                    : _gridOptions.first,
+                isDense: true,
+                items: [
+                  for (final size in _gridOptions)
+                    DropdownMenuItem(
+                      value: size,
+                      child: Text(size == 0 ? 'Off' : '${size.round()} cm'),
+                    ),
+                ],
+                onChanged: (v) => v == null ? null : editor.setGridSize(v),
+              ),
             ),
           ],
         ),
         const SizedBox(height: 8),
         Text(
-          'Tip: select several desks to line them up or space them evenly.',
-          style: Theme.of(context).textTheme.bodySmall,
+          'Drag across desks or Shift-click to select several and align or group them.',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       ],
     );
@@ -262,15 +268,19 @@ class _DeskSection extends StatelessWidget {
           children: [
             const Text('Shape'),
             const Spacer(),
-            DropdownButton<DeskShape>(
-              value: desk.shape,
-              isDense: true,
-              items: [
-                for (final shape in DeskShape.values)
-                  DropdownMenuItem(value: shape, child: Text(shape.label)),
-              ],
-              onChanged: (s) =>
-                  s == null ? null : editor.setDeskShape(desk.id, s),
+            Tooltip(
+              message: 'Change desk shape',
+              excludeFromSemantics: true,
+              child: DropdownButton<DeskShape>(
+                value: desk.shape,
+                isDense: true,
+                items: [
+                  for (final shape in DeskShape.values)
+                    DropdownMenuItem(value: shape, child: Text(shape.label)),
+                ],
+                onChanged: (s) =>
+                    s == null ? null : editor.setDeskShape(desk.id, s),
+              ),
             ),
           ],
         ),
@@ -301,15 +311,23 @@ class _DeskSection extends StatelessWidget {
         Wrap(
           spacing: 8,
           children: [
-            OutlinedButton.icon(
-              onPressed: editor.duplicateSelection,
-              icon: const Icon(Icons.copy_all_outlined, size: 18),
-              label: const Text('Duplicate'),
+            Tooltip(
+              message: 'Duplicate selected desk (Ctrl/Cmd+D)',
+              excludeFromSemantics: true,
+              child: OutlinedButton.icon(
+                onPressed: editor.duplicateSelection,
+                icon: const Icon(Icons.copy_all_outlined, size: 18),
+                label: const Text('Duplicate'),
+              ),
             ),
-            OutlinedButton.icon(
-              onPressed: editor.deleteSelection,
-              icon: const Icon(Icons.delete_outline, size: 18),
-              label: const Text('Delete'),
+            Tooltip(
+              message: 'Delete selected desk',
+              excludeFromSemantics: true,
+              child: OutlinedButton.icon(
+                onPressed: editor.deleteSelection,
+                icon: const Icon(Icons.delete_outline, size: 18),
+                label: const Text('Delete'),
+              ),
             ),
           ],
         ),
@@ -351,28 +369,40 @@ class _RotationControl extends StatelessWidget {
           spacing: 6,
           children: [
             for (final angle in const <double>[0, 90, 180, 270])
-              ChoiceChip(
-                label: Text('${angle.round()}°'),
-                selected: desk.rotation.round() == angle.round(),
-                onSelected: (_) =>
-                    editor.setDeskRotation(desk.id, angle, snap: false),
+              Tooltip(
+                message: 'Set desk angle to ${angle.round()}°',
+                excludeFromSemantics: true,
+                child: ChoiceChip(
+                  label: Text('${angle.round()}°'),
+                  selected: desk.rotation.round() == angle.round(),
+                  onSelected: (_) =>
+                      editor.setDeskRotation(desk.id, angle, snap: false),
+                ),
               ),
-            ActionChip(
-              avatar: const Icon(Icons.rotate_left, size: 16),
-              label: const Text('-15'),
-              onPressed: () => editor.setDeskRotation(
-                desk.id,
-                desk.rotation - 15,
-                snap: false,
+            Tooltip(
+              message: 'Rotate 15° counterclockwise',
+              excludeFromSemantics: true,
+              child: ActionChip(
+                avatar: const Icon(Icons.rotate_left, size: 16),
+                label: const Text('-15'),
+                onPressed: () => editor.setDeskRotation(
+                  desk.id,
+                  desk.rotation - 15,
+                  snap: false,
+                ),
               ),
             ),
-            ActionChip(
-              avatar: const Icon(Icons.rotate_right, size: 16),
-              label: const Text('+15'),
-              onPressed: () => editor.setDeskRotation(
-                desk.id,
-                desk.rotation + 15,
-                snap: false,
+            Tooltip(
+              message: 'Rotate 15° clockwise',
+              excludeFromSemantics: true,
+              child: ActionChip(
+                avatar: const Icon(Icons.rotate_right, size: 16),
+                label: const Text('+15'),
+                onPressed: () => editor.setDeskRotation(
+                  desk.id,
+                  desk.rotation + 15,
+                  snap: false,
+                ),
               ),
             ),
           ],
@@ -404,25 +434,41 @@ class _MultiSection extends StatelessWidget {
           runSpacing: 8,
           children: [
             if (group == null)
-              FilledButton.tonalIcon(
-                onPressed: () => editor.groupSelection(),
-                icon: const Icon(Icons.workspaces_outline, size: 18),
-                label: const Text('Make a group'),
+              Tooltip(
+                message: 'Group selected desks so they move and rotate together',
+                excludeFromSemantics: true,
+                child: FilledButton.tonalIcon(
+                  onPressed: () => editor.groupSelection(),
+                  icon: const Icon(Icons.workspaces_outline, size: 18),
+                  label: const Text('Make a group'),
+                ),
               ),
-            OutlinedButton.icon(
-              onPressed: editor.ungroupSelection,
-              icon: const Icon(Icons.link_off, size: 18),
-              label: const Text('Ungroup'),
+            Tooltip(
+              message: 'Remove selected desks from their group',
+              excludeFromSemantics: true,
+              child: OutlinedButton.icon(
+                onPressed: editor.ungroupSelection,
+                icon: const Icon(Icons.link_off, size: 18),
+                label: const Text('Ungroup'),
+              ),
             ),
-            OutlinedButton.icon(
-              onPressed: locked ? null : editor.podSelection,
-              icon: const Icon(Icons.group_work_outlined, size: 18),
-              label: const Text('Team pod'),
+            Tooltip(
+              message: 'Arrange selected desks facing inward as a team pod',
+              excludeFromSemantics: true,
+              child: OutlinedButton.icon(
+                onPressed: locked ? null : editor.podSelection,
+                icon: const Icon(Icons.group_work_outlined, size: 18),
+                label: const Text('Team pod'),
+              ),
             ),
-            OutlinedButton.icon(
-              onPressed: locked ? null : () => editor.clusterSelection(),
-              icon: const Icon(Icons.join_inner, size: 18),
-              label: const Text('Pull together'),
+            Tooltip(
+              message: 'Snap selected desks tightly into a cluster',
+              excludeFromSemantics: true,
+              child: OutlinedButton.icon(
+                onPressed: locked ? null : () => editor.clusterSelection(),
+                icon: const Icon(Icons.join_inner, size: 18),
+                label: const Text('Pull together'),
+              ),
             ),
           ],
         ),
@@ -444,19 +490,27 @@ class _MultiSection extends StatelessWidget {
         Wrap(
           spacing: 8,
           children: [
-            OutlinedButton.icon(
-              onPressed: count >= 3 && !locked
-                  ? () => editor.distributeSelection(SpreadAxis.horizontal)
-                  : null,
-              icon: const Icon(Icons.horizontal_distribute, size: 18),
-              label: const Text('Across'),
+            Tooltip(
+              message: 'Space 3 or more desks evenly horizontally',
+              excludeFromSemantics: true,
+              child: OutlinedButton.icon(
+                onPressed: count >= 3 && !locked
+                    ? () => editor.distributeSelection(SpreadAxis.horizontal)
+                    : null,
+                icon: const Icon(Icons.horizontal_distribute, size: 18),
+                label: const Text('Across'),
+              ),
             ),
-            OutlinedButton.icon(
-              onPressed: count >= 3 && !locked
-                  ? () => editor.distributeSelection(SpreadAxis.vertical)
-                  : null,
-              icon: const Icon(Icons.vertical_distribute, size: 18),
-              label: const Text('Down'),
+            Tooltip(
+              message: 'Space 3 or more desks evenly vertically',
+              excludeFromSemantics: true,
+              child: OutlinedButton.icon(
+                onPressed: count >= 3 && !locked
+                    ? () => editor.distributeSelection(SpreadAxis.vertical)
+                    : null,
+                icon: const Icon(Icons.vertical_distribute, size: 18),
+                label: const Text('Down'),
+              ),
             ),
           ],
         ),
@@ -469,26 +523,39 @@ class _MultiSection extends StatelessWidget {
           children: [
             if (group == null) ...[
               for (final angle in const <double>[0, 90, 180, 270])
-                ActionChip(
-                  label: Text('${angle.round()}°'),
-                  onPressed: () => editor.setSelectionRotation(angle),
+                Tooltip(
+                  message: 'Turn each selected desk to ${angle.round()}°',
+                  excludeFromSemantics: true,
+                  child: ActionChip(
+                    label: Text('${angle.round()}°'),
+                    onPressed: () => editor.setSelectionRotation(angle),
+                  ),
                 ),
-              ActionChip(
-                avatar: const Icon(Icons.rotate_90_degrees_ccw, size: 16),
-                label: const Text('Rotate group'),
-                onPressed: () => editor.rotateSelectionBy(15),
+              Tooltip(
+                message: 'Rotate selected desks together by 15°',
+                excludeFromSemantics: true,
+                child: ActionChip(
+                  avatar: const Icon(Icons.rotate_90_degrees_ccw, size: 16),
+                  label: const Text('Rotate group'),
+                  onPressed: () => editor.rotateSelectionBy(15),
+                ),
               ),
             ] else
               for (final angle in const <double>[-90, -15, 15, 90])
-                ActionChip(
-                  avatar: Icon(
-                    angle < 0 ? Icons.rotate_left : Icons.rotate_right,
-                    size: 16,
+                Tooltip(
+                  message:
+                      'Rotate whole group ${angle > 0 ? '+${angle.round()}° clockwise' : '${angle.round()}° counterclockwise'}',
+                  excludeFromSemantics: true,
+                  child: ActionChip(
+                    avatar: Icon(
+                      angle < 0 ? Icons.rotate_left : Icons.rotate_right,
+                      size: 16,
+                    ),
+                    label: Text('${angle > 0 ? '+' : ''}${angle.round()}°'),
+                    onPressed: locked
+                        ? null
+                        : () => editor.rotateSelectionBy(angle),
                   ),
-                  label: Text('${angle > 0 ? '+' : ''}${angle.round()}°'),
-                  onPressed: locked
-                      ? null
-                      : () => editor.rotateSelectionBy(angle),
                 ),
           ],
         ),
@@ -496,15 +563,23 @@ class _MultiSection extends StatelessWidget {
         Wrap(
           spacing: 8,
           children: [
-            OutlinedButton.icon(
-              onPressed: editor.duplicateSelection,
-              icon: const Icon(Icons.copy_all_outlined, size: 18),
-              label: const Text('Duplicate'),
+            Tooltip(
+              message: 'Duplicate selected desks',
+              excludeFromSemantics: true,
+              child: OutlinedButton.icon(
+                onPressed: editor.duplicateSelection,
+                icon: const Icon(Icons.copy_all_outlined, size: 18),
+                label: const Text('Duplicate'),
+              ),
             ),
-            OutlinedButton.icon(
-              onPressed: editor.deleteSelection,
-              icon: const Icon(Icons.delete_outline, size: 18),
-              label: const Text('Delete'),
+            Tooltip(
+              message: 'Delete selected desks',
+              excludeFromSemantics: true,
+              child: OutlinedButton.icon(
+                onPressed: editor.deleteSelection,
+                icon: const Icon(Icons.delete_outline, size: 18),
+                label: const Text('Delete'),
+              ),
             ),
           ],
         ),
@@ -542,7 +617,9 @@ class _GroupSection extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           '${desks.length} desks · Drag the group outline to move together.',
-          style: Theme.of(context).textTheme.bodySmall,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
         const SizedBox(height: 12),
         Text('Group color', style: Theme.of(context).textTheme.labelMedium),
@@ -570,7 +647,9 @@ class _GroupSection extends StatelessWidget {
         const _SectionTitle('Desk size and shape'),
         Text(
           'Applies to every desk in this group.',
-          style: Theme.of(context).textTheme.bodySmall,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
         _MeasureSlider(
           label: 'Width',
@@ -594,16 +673,20 @@ class _GroupSection extends StatelessWidget {
           children: [
             const Text('Shape'),
             const Spacer(),
-            DropdownButton<DeskShape>(
-              value: shapes.length == 1 ? shapes.first : null,
-              hint: const Text('Mixed'),
-              items: [
-                for (final shape in DeskShape.values)
-                  DropdownMenuItem(value: shape, child: Text(shape.label)),
-              ],
-              onChanged: (shape) {
-                if (shape != null) editor.setSelectionShape(shape);
-              },
+            Tooltip(
+              message: 'Apply shape to every desk in this group',
+              excludeFromSemantics: true,
+              child: DropdownButton<DeskShape>(
+                value: shapes.length == 1 ? shapes.first : null,
+                hint: const Text('Mixed'),
+                items: [
+                  for (final shape in DeskShape.values)
+                    DropdownMenuItem(value: shape, child: Text(shape.label)),
+                ],
+                onChanged: (shape) {
+                  if (shape != null) editor.setSelectionShape(shape);
+                },
+              ),
             ),
           ],
         ),

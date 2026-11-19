@@ -74,6 +74,7 @@ class LayoutsPanel extends StatelessWidget {
             ),
             trailing: MenuAnchor(
               builder: (context, controller, _) => IconButton(
+                tooltip: 'Layout options',
                 icon: const Icon(Icons.more_vert),
                 onPressed: () =>
                     controller.isOpen ? controller.close() : controller.open(),
@@ -101,7 +102,19 @@ class LayoutsPanel extends StatelessWidget {
         const Divider(),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-          child: Text('New layout', style: theme.textTheme.titleSmall),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('New layout', style: theme.textTheme.titleSmall),
+              const SizedBox(height: 2),
+              Text(
+                'Start from a preset — room edits autosave automatically.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
         ),
         for (final preset in LayoutPreset.values)
           ListTile(
@@ -175,6 +188,7 @@ class HistoryPanel extends StatelessWidget {
           ),
           trailing: MenuAnchor(
             builder: (context, controller, _) => IconButton(
+              tooltip: 'Saved chart options',
               icon: const Icon(Icons.more_vert),
               onPressed: () =>
                   controller.isOpen ? controller.close() : controller.open(),

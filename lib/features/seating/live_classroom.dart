@@ -265,23 +265,54 @@ class LiveClassroomState extends State<LiveClassroom> {
     final picked = await showModalBottomSheet<Student>(
       context: context,
       showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            for (final student in widget.editor.roster)
-              ListTile(
-                title: Text(student.fullName),
-                subtitle: Text(
-                  widget.editor.seating.containsValue(student.id)
-                      ? 'Seated'
-                      : 'Not yet seated',
+      builder: (context) {
+        final theme = Theme.of(context);
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Choose a student',
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Includes unseated students so you can still score them.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
-                onTap: () => Navigator.pop(context, student),
               ),
-          ],
-        ),
-      ),
+              const Divider(height: 1),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    for (final student in widget.editor.roster)
+                      ListTile(
+                        title: Text(student.fullName),
+                        subtitle: Text(
+                          widget.editor.seating.containsValue(student.id)
+                              ? 'Seated'
+                              : 'Not yet seated',
+                        ),
+                        onTap: () => Navigator.pop(context, student),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
     if (picked == null || !mounted) return;
     setState(() => _studentId = picked.id);
@@ -326,6 +357,13 @@ class LiveClassroomState extends State<LiveClassroom> {
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   Text(widget.section.name),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Tap a student to view dated entries',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                   Row(
                     children: [
                       IconButton(
@@ -350,11 +388,15 @@ class LiveClassroomState extends State<LiveClassroom> {
                         onPressed: () => setSheetState(() => week = end),
                         icon: const Icon(Icons.chevron_right),
                       ),
-                      TextButton(
-                        onPressed: () => setSheetState(
-                          () => week = weekStart(DateTime.now()),
+                      Tooltip(
+                        message: 'Jump back to the current week',
+                        excludeFromSemantics: true,
+                        child: TextButton(
+                          onPressed: () => setSheetState(
+                            () => week = weekStart(DateTime.now()),
+                          ),
+                          child: const Text('This week'),
                         ),
-                        child: const Text('This week'),
                       ),
                     ],
                   ),
@@ -438,13 +480,17 @@ class _FloatingUndoPill extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 4),
-          TextButton(
-            style: TextButton.styleFrom(
-              visualDensity: VisualDensity.compact,
-              foregroundColor: scheme.onSecondaryContainer,
+          Tooltip(
+            message: 'Undo the last participation point',
+            excludeFromSemantics: true,
+            child: TextButton(
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                foregroundColor: scheme.onSecondaryContainer,
+              ),
+              onPressed: onUndo,
+              child: const Text('Undo'),
             ),
-            onPressed: onUndo,
-            child: const Text('Undo'),
           ),
           IconButton(
             tooltip: 'Dismiss',
@@ -543,26 +589,34 @@ class _MobileLiveDock extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(0, 40),
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Tooltip(
+                    message: 'Deduct 1 participation point',
+                    excludeFromSemantics: true,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(0, 40),
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                      ),
+                      onPressed: () => onScore(-1),
+                      icon: const Icon(Icons.remove, size: 18),
+                      label: const Text('Deduct 1'),
                     ),
-                    onPressed: () => onScore(-1),
-                    icon: const Icon(Icons.remove, size: 18),
-                    label: const Text('Deduct 1'),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size(0, 40),
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Tooltip(
+                    message: 'Add 1 participation point',
+                    excludeFromSemantics: true,
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(0, 40),
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                      ),
+                      onPressed: () => onScore(1),
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Add 1'),
                     ),
-                    onPressed: () => onScore(1),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Add 1'),
                   ),
                 ),
               ],
@@ -583,6 +637,7 @@ class _MobileLiveDock extends StatelessWidget {
                   segments: [
                     ButtonSegment(
                       value: 0,
+                      tooltip: 'Tap a seat to select a student without scoring',
                       label: const Text('Select', maxLines: 1),
                       icon: compact
                           ? null
@@ -590,11 +645,13 @@ class _MobileLiveDock extends StatelessWidget {
                     ),
                     ButtonSegment(
                       value: 1,
+                      tooltip: 'Tap any occupied seat to add 1 point',
                       label: const Text('Tap +1', maxLines: 1),
                       icon: compact ? null : const Icon(Icons.add, size: 16),
                     ),
                     ButtonSegment(
                       value: -1,
+                      tooltip: 'Tap any occupied seat to deduct 1 point',
                       label: const Text('Tap −1', maxLines: 1),
                       icon: compact ? null : const Icon(Icons.remove, size: 16),
                     ),
@@ -616,13 +673,17 @@ class _MobileLiveDock extends StatelessWidget {
             const SizedBox(height: 4),
             Align(
               alignment: Alignment.center,
-              child: TextButton.icon(
-                style: TextButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
+              child: Tooltip(
+                message: 'Switch to Seat students to assign desks',
+                excludeFromSemantics: true,
+                child: TextButton.icon(
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  onPressed: onEdit,
+                  icon: const Icon(Icons.event_seat_outlined, size: 16),
+                  label: const Text('Set up seating'),
                 ),
-                onPressed: onEdit,
-                icon: const Icon(Icons.event_seat_outlined, size: 16),
-                label: const Text('Set up seating'),
               ),
             ),
           ],
@@ -684,14 +745,37 @@ class _DesktopLivePanel extends StatelessWidget {
           SegmentedButton<int>(
             showSelectedIcon: false,
             segments: const [
-              ButtonSegment(value: 0, label: Text('Select')),
-              ButtonSegment(value: 1, label: Text('Tap +1')),
-              ButtonSegment(value: -1, label: Text('Tap −1')),
+              ButtonSegment(
+                value: 0,
+                tooltip: 'Tap a seat to select a student without scoring',
+                label: Text('Select'),
+              ),
+              ButtonSegment(
+                value: 1,
+                tooltip: 'Tap any occupied seat to add 1 point',
+                label: Text('Tap +1'),
+              ),
+              ButtonSegment(
+                value: -1,
+                tooltip: 'Tap any occupied seat to deduct 1 point',
+                label: Text('Tap −1'),
+              ),
             ],
             selected: {tapDelta},
             onSelectionChanged: (v) => onTapModeChanged(v.first),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 6),
+          Text(
+            switch (tapDelta) {
+              1 => 'Tap any seat to immediately add +1.',
+              -1 => 'Tap any seat to immediately deduct −1.',
+              _ => 'Tap a seat to inspect or score.',
+            },
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 14),
           Card(
             margin: EdgeInsets.zero,
             elevation: 0,
@@ -740,28 +824,42 @@ class _DesktopLivePanel extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size(0, 44),
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Tooltip(
+                          message: 'Deduct 1 participation point',
+                          excludeFromSemantics: true,
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(0, 44),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
+                            ),
+                            onPressed: selected == null
+                                ? null
+                                : () => onScore(-1),
+                            icon: const Icon(Icons.remove, size: 18),
+                            label: const Text('Deduct 1'),
                           ),
-                          onPressed: selected == null
-                              ? null
-                              : () => onScore(-1),
-                          icon: const Icon(Icons.remove, size: 18),
-                          label: const Text('Deduct 1'),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: FilledButton.icon(
-                          style: FilledButton.styleFrom(
-                            minimumSize: const Size(0, 44),
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Tooltip(
+                          message: 'Add 1 participation point',
+                          excludeFromSemantics: true,
+                          child: FilledButton.icon(
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size(0, 44),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
+                            ),
+                            onPressed: selected == null
+                                ? null
+                                : () => onScore(1),
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text('Add 1'),
                           ),
-                          onPressed: selected == null ? null : () => onScore(1),
-                          icon: const Icon(Icons.add, size: 18),
-                          label: const Text('Add 1'),
                         ),
                       ),
                     ],
@@ -796,9 +894,13 @@ class _DesktopLivePanel extends StatelessWidget {
                         ),
                       ),
                     ),
-                    TextButton(
-                      onPressed: lastEntry == null ? null : onUndo,
-                      child: const Text('Undo'),
+                    Tooltip(
+                      message: 'Undo the last participation point',
+                      excludeFromSemantics: true,
+                      child: TextButton(
+                        onPressed: lastEntry == null ? null : onUndo,
+                        child: const Text('Undo'),
+                      ),
                     ),
                   ],
                 ),
@@ -807,10 +909,14 @@ class _DesktopLivePanel extends StatelessWidget {
           ),
           const Spacer(),
           if (editor.seating.isEmpty)
-            FilledButton.tonalIcon(
-              onPressed: onEdit,
-              icon: const Icon(Icons.event_seat_outlined),
-              label: const Text('Set up seating'),
+            Tooltip(
+              message: 'Switch to Seat students to assign desks',
+              excludeFromSemantics: true,
+              child: FilledButton.tonalIcon(
+                onPressed: onEdit,
+                icon: const Icon(Icons.event_seat_outlined),
+                label: const Text('Set up seating'),
+              ),
             )
           else if (editor.unseatedStudents.isNotEmpty)
             Padding(
@@ -823,10 +929,14 @@ class _DesktopLivePanel extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
             ),
-          OutlinedButton.icon(
-            onPressed: onShowWeek,
-            icon: const Icon(Icons.date_range_outlined, size: 18),
-            label: const Text('Weekly breakdown'),
+          Tooltip(
+            message: 'View weekly point totals and timestamped entries',
+            excludeFromSemantics: true,
+            child: OutlinedButton.icon(
+              onPressed: onShowWeek,
+              icon: const Icon(Icons.date_range_outlined, size: 18),
+              label: const Text('Weekly breakdown'),
+            ),
           ),
         ],
       ),

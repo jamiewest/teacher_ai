@@ -40,48 +40,65 @@ class EditorToolbar extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (onOpenPanel != null) ...[
-              TextButton.icon(
-                style: TextButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                ),
-                onPressed: onOpenPanel,
-                icon: Icon(
-                  editor.mode == EditorMode.seating
-                      ? Icons.people_outline
-                      : Icons.tune,
-                  size: 18,
-                ),
-                label: Text(
-                  editor.mode == EditorMode.seating ? 'Students' : 'Properties',
+              Tooltip(
+                message: editor.mode == EditorMode.seating
+                    ? 'Open class roster, layouts, and history'
+                    : 'Open room, desk, and group properties',
+                excludeFromSemantics: true,
+                child: TextButton.icon(
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  onPressed: onOpenPanel,
+                  icon: Icon(
+                    editor.mode == EditorMode.seating
+                        ? Icons.people_outline
+                        : Icons.tune,
+                    size: 18,
+                  ),
+                  label: Text(
+                    editor.mode == EditorMode.seating
+                        ? 'Students'
+                        : 'Properties',
+                  ),
                 ),
               ),
               const _Sep(),
             ],
             if (editor.mode == EditorMode.seating) ...[
-              FilledButton.tonalIcon(
-                style: FilledButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
+              Tooltip(
+                message: 'Fill open seats while keeping existing placements',
+                excludeFromSemantics: true,
+                child: FilledButton.tonalIcon(
+                  style: FilledButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                   ),
+                  onPressed:
+                      editor.unseatedStudents.isEmpty ||
+                          editor.layout.seatCount == 0
+                      ? null
+                      : onAutoSeat,
+                  icon: const Icon(Icons.auto_awesome_outlined, size: 18),
+                  label: const Text('Seat remaining'),
                 ),
-                onPressed:
-                    editor.unseatedStudents.isEmpty ||
-                        editor.layout.seatCount == 0
-                    ? null
-                    : onAutoSeat,
-                icon: const Icon(Icons.auto_awesome_outlined, size: 18),
-                label: const Text('Seat remaining'),
               ),
               const SizedBox(width: 4),
-              TextButton.icon(
-                style: TextButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
+              Tooltip(
+                message:
+                    'Randomize seating while keeping pinned seats in place',
+                excludeFromSemantics: true,
+                child: TextButton.icon(
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  onPressed: editor.seating.isEmpty ? null : onShuffle,
+                  icon: const Icon(Icons.shuffle, size: 18),
+                  label: const Text('Shuffle'),
                 ),
-                onPressed: editor.seating.isEmpty ? null : onShuffle,
-                icon: const Icon(Icons.shuffle, size: 18),
-                label: const Text('Shuffle'),
               ),
             ] else ...[
               SegmentedButton<EditorTool>(
@@ -108,17 +125,21 @@ class EditorToolbar extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               MenuAnchor(
-                builder: (context, menu, _) => FilledButton.tonalIcon(
-                  style: FilledButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
+                builder: (context, menu, _) => Tooltip(
+                  message: 'Add student desks, tables, or room fixtures',
+                  excludeFromSemantics: true,
+                  child: FilledButton.tonalIcon(
+                    style: FilledButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                     ),
+                    onPressed: () => menu.isOpen ? menu.close() : menu.open(),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Add furniture'),
                   ),
-                  onPressed: () => menu.isOpen ? menu.close() : menu.open(),
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Add furniture'),
                 ),
                 menuChildren: [
                   for (final kind in DeskKind.values)
@@ -194,13 +215,17 @@ class _ArrangeMenuButton extends StatelessWidget {
     final canAlign = count >= 2;
     final canDistribute = count >= 3;
     return MenuAnchor(
-      builder: (context, controller, _) => TextButton.icon(
-        style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-        onPressed: canAlign
-            ? () => controller.isOpen ? controller.close() : controller.open()
-            : null,
-        icon: const Icon(Icons.dashboard_customize_outlined, size: 18),
-        label: const Text('Arrange'),
+      builder: (context, controller, _) => Tooltip(
+        message: 'Align, space evenly, group, or form a team pod',
+        excludeFromSemantics: true,
+        child: TextButton.icon(
+          style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+          onPressed: canAlign
+              ? () => controller.isOpen ? controller.close() : controller.open()
+              : null,
+          icon: const Icon(Icons.dashboard_customize_outlined, size: 18),
+          label: const Text('Arrange'),
+        ),
       ),
       menuChildren: [
         for (final edge in AlignEdge.values)
