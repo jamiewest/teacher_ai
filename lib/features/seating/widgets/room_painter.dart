@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 
 import '../../../app/theme.dart';
 import '../../../domain/models/models.dart';
@@ -57,6 +58,7 @@ class DeskVisual {
     required this.desk,
     this.studentName,
     this.studentInitials,
+    this.participationScore,
     this.tagColors = const <Color>[],
     this.groupColor,
     this.groupName,
@@ -69,6 +71,7 @@ class DeskVisual {
   /// Null when the seat is empty.
   final String? studentName;
   final String? studentInitials;
+  final int? participationScore;
 
   /// Colors of the tags on the seated student, capped by the caller.
   final List<Color> tagColors;
@@ -89,7 +92,7 @@ class TextLayoutCache {
   TextPainter get(String text, TextStyle style, double maxWidth) {
     final key =
         '$text|${style.fontSize}|${style.color?.toARGB32()}|'
-        '${style.fontWeight?.value}|${maxWidth.round()}';
+        '${style.fontWeight?.value}|${style.letterSpacing}|${maxWidth.round()}';
     return _entries.putIfAbsent(key, () {
       final painter = TextPainter(
         text: TextSpan(
@@ -128,6 +131,7 @@ class RoomPainter extends CustomPainter {
     this.showNames = true,
     this.showFacing = true,
     this.selectedGroupId,
+    this.onSeatTap,
   });
 
   final RoomLayout layout;
@@ -146,6 +150,7 @@ class RoomPainter extends CustomPainter {
   final bool showNames;
   final bool showFacing;
   final String? selectedGroupId;
+  final ValueChanged<Desk>? onSeatTap;
 
   /// Marquee rectangle in room coordinates, while the user is dragging one.
   final Rect? marquee;
@@ -170,6 +175,9 @@ class RoomPainter extends CustomPainter {
     for (final visual in visuals) {
       _paintDesk(canvas, visual);
     }
+    for (final visual in visuals) {
+      _paintScore(canvas, visual);
+    }
     if (marquee != null) _paintMarquee(canvas, marquee!);
     if (rotationHandle != null) _paintRotationHandle(canvas, rotationHandle!);
 
@@ -179,14 +187,42 @@ class RoomPainter extends CustomPainter {
   void _paintFloor(Canvas canvas) {
     final rect = Rect.fromLTWH(0, 0, layout.roomWidth, layout.roomHeight);
     canvas
+      ..drawRRect(
+        RRect.fromRectAndRadius(
+          rect.shift(Offset(0, 4 / scale)),
+          const Radius.circular(6),
+        ),
+        Paint()
+          ..color = palette.floorShadow
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 8 / scale),
+      )
       ..drawRect(rect, Paint()..color = palette.floor)
       ..drawRect(
         rect,
         Paint()
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.5 / scale
+          ..strokeWidth = (palette.highContrast ? 2.2 : 1.5) / scale
           ..color = palette.wall,
       );
+
+    if (scale >= 0.2) {
+      final frontPainter = textCache.get(
+        'FRONT',
+        TextStyle(
+          fontSize: (11 / scale).clamp(16.0, 34.0).roundToDouble(),
+          fontWeight: FontWeight.w700,
+          letterSpacing: 3.0,
+          color: palette.emptySeat.withValues(
+            alpha: palette.highContrast ? 0.55 : 0.35,
+          ),
+        ),
+        layout.roomWidth,
+      );
+      frontPainter.paint(
+        canvas,
+        Offset((layout.roomWidth - frontPainter.width) / 2, 8),
+      );
+    }
   }
 
   void _paintGrid(Canvas canvas) {
@@ -278,9 +314,10 @@ class RoomPainter extends CustomPainter {
     canvas.drawPath(path, Paint()..color = fill);
 
     final isEmptySeat = desk.isSeat && visual.studentName == null;
+    final baseStroke = palette.highContrast ? 2.2 : 1.5;
     final borderPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = (visual.isSelected ? 3 : 1.5) / scale
+      ..strokeWidth = (visual.isSelected ? 3.2 : baseStroke) / scale
       ..color = visual.isSelected
           ? palette.selection
           : (desk.isSeat ? palette.deskBorder : palette.fixtureBorder);
@@ -300,6 +337,35 @@ class RoomPainter extends CustomPainter {
     if (desk.locked) _paintLockBadge(canvas, desk);
     if (visual.isPinned) _paintPinBadge(canvas, desk);
     if (showNames) _paintDeskLabel(canvas, visual);
+  }
+
+  void _paintScore(Canvas canvas, DeskVisual visual) {
+    final desk = visual.desk;
+    final score = visual.participationScore;
+    if (score != null && score != 0) {
+      final label = textCache.get(
+        score > 0 ? '+$score' : '$score',
+        TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
+          color: score < 0 ? palette.negativeFg : palette.positiveFg,
+        ),
+        46,
+      );
+      final center = desk.bounds.topRight + const Offset(-10, -1);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(
+            center: center,
+            width: label.width + 12,
+            height: label.height + 2,
+          ),
+          const Radius.circular(5),
+        ),
+        Paint()..color = score < 0 ? palette.negativeBg : palette.positiveBg,
+      );
+      label.paint(canvas, center - Offset(label.width / 2, label.height / 2));
+    }
   }
 
   void _paintFacingChevron(Canvas canvas, Rect rect) {
@@ -360,10 +426,12 @@ class RoomPainter extends CustomPainter {
       fontSize: desk.isSeat
           ? (useInitials ? 23 : (11 / scale).clamp(14, 18))
           : 16,
-      fontWeight: desk.isSeat ? FontWeight.w600 : FontWeight.w400,
+      fontWeight: desk.isSeat
+          ? (palette.highContrast ? FontWeight.w700 : FontWeight.w600)
+          : (palette.highContrast ? FontWeight.w500 : FontWeight.w400),
       color: desk.isSeat
           ? palette.deskText
-          : palette.deskText.withValues(alpha: 0.7),
+          : palette.deskText.withValues(alpha: palette.highContrast ? 0.9 : 0.7),
     );
     if (desk.isSeat) {
       final measured = textCache.get(displayLabel, style, 1000);
@@ -487,6 +555,34 @@ class RoomPainter extends CustomPainter {
   }
 
   @override
+  SemanticsBuilderCallback? get semanticsBuilder => onSeatTap == null
+      ? null
+      : (size) => [
+          for (final visual in visuals)
+            if (visual.desk.isSeat)
+              CustomPainterSemantics(
+                key: ValueKey(visual.desk.id),
+                rect: Rect.fromPoints(
+                  visual.desk.bounds.topLeft * scale + pan,
+                  visual.desk.bounds.bottomRight * scale + pan,
+                ),
+                properties: SemanticsProperties(
+                  label: visual.studentName ?? 'Empty seat',
+                  value: visual.participationScore == null
+                      ? null
+                      : '${visual.participationScore} points today',
+                  textDirection: TextDirection.ltr,
+                  button: true,
+                  selected: visual.isSelected,
+                  onTap: () => onSeatTap!(visual.desk),
+                ),
+              ),
+        ];
+
+  @override
+  bool shouldRebuildSemantics(RoomPainter oldDelegate) => true;
+
+  @override
   bool shouldRepaint(RoomPainter old) =>
       old.layout != layout ||
       old.visuals != visuals ||
@@ -499,5 +595,8 @@ class RoomPainter extends CustomPainter {
       old.selectedGroupId != selectedGroupId ||
       old.marquee != marquee ||
       old.rotationHandle != rotationHandle ||
-      old.palette.scheme != palette.scheme;
+      old.palette.scheme != palette.scheme ||
+      old.palette.highContrast != palette.highContrast ||
+      old.palette.floor != palette.floor ||
+      old.palette.positiveBg != palette.positiveBg;
 }

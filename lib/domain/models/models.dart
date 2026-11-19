@@ -11,3 +11,4 @@ export 'seating_assignment.dart';
 export 'student.dart';
 export 'student_tag.dart';
 export 'subject.dart';
+export 'participation.dart';

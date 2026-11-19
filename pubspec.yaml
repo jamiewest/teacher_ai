@@ -1,6 +1,6 @@
 name: teacher_ai
 description: "Seating chart builder and lesson plan generator for teachers."
-publish_to: 'none'
+publish_to: "none"
 version: 0.1.0
 
 environment:

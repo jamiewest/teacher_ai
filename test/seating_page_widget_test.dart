@@ -24,8 +24,9 @@ Future<TeacherWorkspace> loadedWorkspace() async {
 Future<void> pumpShell(
   WidgetTester tester,
   TeacherWorkspace workspace,
-  Size size,
-) async {
+  Size size, {
+  bool edit = true,
+}) async {
   tester.view
     ..physicalSize = size
     ..devicePixelRatio = 1.0;
@@ -38,6 +39,10 @@ Future<void> pumpShell(
     ),
   );
   await tester.pumpAndSettle();
+  if (edit) {
+    await tester.tap(find.byTooltip('Edit seating'));
+    await tester.pumpAndSettle();
+  }
 }
 
 void main() {
@@ -60,10 +65,12 @@ void main() {
       final previousScale = normalView.scale;
       final previousPan = normalView.pan;
 
-      await tester.tap(find.text('Expand view'));
+      await tester.tap(find.byTooltip('Expand view'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       expect(find.byType(RosterPanel), findsNothing);
+      expect(find.byType(NavigationBar), findsNothing);
+      expect(find.byType(NavigationRail), findsNothing);
       final expandedSize = tester.getSize(canvas);
       expect(expandedSize.height, greaterThan(normalSize.height));
       if (size.width == 1400) {
@@ -88,7 +95,7 @@ void main() {
       expect(seating, isNotEmpty);
       expect(find.byTooltip('Save chart'), findsOneWidget);
 
-      await tester.tap(find.text('Restore view'));
+      await tester.tap(find.byTooltip('Restore view'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       expect(tester.getSize(canvas), normalSize);

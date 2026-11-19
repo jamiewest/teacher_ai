@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 
-import '../../../domain/ops/layout_ops.dart';
 import '../../../domain/models/models.dart';
+import '../../../domain/ops/layout_ops.dart';
 import '../room_view_controller.dart';
 import '../seating_editor_controller.dart';
 import '../seating_editor_state.dart';
+import 'canvas_overlay_controls.dart';
 
-/// The band of controls above the classroom.
+/// Floating contextual toolbar anchored over the classroom canvas.
 ///
-/// Which controls stay visible is the main responsive decision in the editor:
-/// on a desktop the arrange actions are one click away, while on a phone they
-/// collapse into a menu so the canvas keeps the width it needs.
+/// Renders as a single compact, horizontally scrollable pill so it never wraps
+/// into multiple rows or steals vertical height from the canvas on narrow phones.
 class EditorToolbar extends StatelessWidget {
   const EditorToolbar({
     required this.editor,
@@ -21,6 +21,7 @@ class EditorToolbar extends StatelessWidget {
     this.onSave,
     super.key,
   });
+
   final SeatingEditorController editor;
   final RoomViewController view;
   final VoidCallback onAutoSeat;
@@ -31,120 +32,141 @@ class EditorToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: editor,
-    builder: (context, _) => Material(
-      color: Theme.of(context).colorScheme.surface,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: SizedBox(
-          width: double.infinity,
-          child: Wrap(
-            spacing: 4,
-            runSpacing: 4,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              if (onOpenPanel != null)
-                TextButton.icon(
-                  onPressed: onOpenPanel,
-                  icon: Icon(
-                    editor.mode == EditorMode.seating
-                        ? Icons.people_outline
-                        : Icons.tune,
-                    size: 18,
-                  ),
-                  label: Text(
-                    editor.mode == EditorMode.seating
-                        ? 'Students'
-                        : 'Properties',
-                  ),
+    builder: (context, _) => FloatingPillSurface(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (onOpenPanel != null) ...[
+              TextButton.icon(
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
                 ),
-              if (editor.mode == EditorMode.seating) ...[
-                FilledButton.tonalIcon(
-                  onPressed:
-                      editor.unseatedStudents.isEmpty ||
-                          editor.layout.seatCount == 0
-                      ? null
-                      : onAutoSeat,
-                  icon: const Icon(Icons.auto_awesome_outlined, size: 18),
-                  label: const Text('Seat remaining'),
+                onPressed: onOpenPanel,
+                icon: Icon(
+                  editor.mode == EditorMode.seating
+                      ? Icons.people_outline
+                      : Icons.tune,
+                  size: 18,
                 ),
-                TextButton.icon(
-                  onPressed: editor.seating.isEmpty ? null : onShuffle,
-                  icon: const Icon(Icons.shuffle, size: 18),
-                  label: const Text('Shuffle'),
+                label: Text(
+                  editor.mode == EditorMode.seating ? 'Students' : 'Properties',
                 ),
-              ] else ...[
-                SegmentedButton<EditorTool>(
-                  showSelectedIcon: false,
-                  segments: const [
-                    ButtonSegment(
-                      value: EditorTool.select,
-                      icon: Icon(Icons.near_me_outlined),
-                      tooltip: 'Select and move desks',
-                    ),
-                    ButtonSegment(
-                      value: EditorTool.pan,
-                      icon: Icon(Icons.pan_tool_outlined),
-                      tooltip: 'Pan around the room',
-                    ),
-                  ],
-                  selected: {
-                    editor.tool == EditorTool.addDesk
-                        ? EditorTool.select
-                        : editor.tool,
-                  },
-                  onSelectionChanged: (s) => editor.setTool(s.first),
-                ),
-                MenuAnchor(
-                  builder: (context, menu, _) => FilledButton.tonalIcon(
-                    onPressed: () => menu.isOpen ? menu.close() : menu.open(),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Add furniture'),
-                  ),
-                  menuChildren: [
-                    for (final kind in DeskKind.values)
-                      MenuItemButton(
-                        onPressed: () {
-                          editor.addDesk(
-                            view.toRoom(
-                              Offset(
-                                view.viewport.width / 2,
-                                view.viewport.height / 2,
-                              ),
-                            ),
-                            kind: kind,
-                          );
-                          editor.setTool(EditorTool.select);
-                        },
-                        child: Text(kind.label),
-                      ),
-                  ],
-                ),
-                if (editor.selection.length >= 2)
-                  _ArrangeMenuButton(
-                    editor: editor,
-                    count: editor.selection.length,
-                  ),
-                _ViewMenuButton(editor: editor),
-              ],
+              ),
               const _Sep(),
-              IconButton(
-                tooltip: 'Undo',
-                onPressed: editor.canUndo ? editor.undo : null,
-                icon: const Icon(Icons.undo, size: 20),
-              ),
-              IconButton(
-                tooltip: 'Redo',
-                onPressed: editor.canRedo ? editor.redo : null,
-                icon: const Icon(Icons.redo, size: 20),
-              ),
-              if (onSave != null)
-                IconButton(
-                  tooltip: 'Save chart',
-                  onPressed: onSave,
-                  icon: const Icon(Icons.bookmark_add_outlined, size: 20),
-                ),
             ],
-          ),
+            if (editor.mode == EditorMode.seating) ...[
+              FilledButton.tonalIcon(
+                style: FilledButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                ),
+                onPressed:
+                    editor.unseatedStudents.isEmpty ||
+                        editor.layout.seatCount == 0
+                    ? null
+                    : onAutoSeat,
+                icon: const Icon(Icons.auto_awesome_outlined, size: 18),
+                label: const Text('Seat remaining'),
+              ),
+              const SizedBox(width: 4),
+              TextButton.icon(
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                ),
+                onPressed: editor.seating.isEmpty ? null : onShuffle,
+                icon: const Icon(Icons.shuffle, size: 18),
+                label: const Text('Shuffle'),
+              ),
+            ] else ...[
+              SegmentedButton<EditorTool>(
+                showSelectedIcon: false,
+                style: const ButtonStyle(visualDensity: VisualDensity.compact),
+                segments: const [
+                  ButtonSegment(
+                    value: EditorTool.select,
+                    icon: Icon(Icons.near_me_outlined, size: 18),
+                    tooltip: 'Select and move desks',
+                  ),
+                  ButtonSegment(
+                    value: EditorTool.pan,
+                    icon: Icon(Icons.pan_tool_outlined, size: 18),
+                    tooltip: 'Pan around the room',
+                  ),
+                ],
+                selected: {
+                  editor.tool == EditorTool.addDesk
+                      ? EditorTool.select
+                      : editor.tool,
+                },
+                onSelectionChanged: (s) => editor.setTool(s.first),
+              ),
+              const SizedBox(width: 6),
+              MenuAnchor(
+                builder: (context, menu, _) => FilledButton.tonalIcon(
+                  style: FilledButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                  ),
+                  onPressed: () => menu.isOpen ? menu.close() : menu.open(),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add furniture'),
+                ),
+                menuChildren: [
+                  for (final kind in DeskKind.values)
+                    MenuItemButton(
+                      onPressed: () {
+                        editor.addDesk(
+                          view.toRoom(
+                            Offset(
+                              view.viewport.width / 2,
+                              view.viewport.height / 2,
+                            ),
+                          ),
+                          kind: kind,
+                        );
+                        editor.setTool(EditorTool.select);
+                      },
+                      child: Text(kind.label),
+                    ),
+                ],
+              ),
+              if (editor.selection.length >= 2)
+                _ArrangeMenuButton(
+                  editor: editor,
+                  count: editor.selection.length,
+                ),
+              _ViewMenuButton(editor: editor),
+            ],
+            const _Sep(),
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              tooltip: 'Undo',
+              onPressed: editor.canUndo ? editor.undo : null,
+              icon: const Icon(Icons.undo, size: 20),
+            ),
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              tooltip: 'Redo',
+              onPressed: editor.canRedo ? editor.redo : null,
+              icon: const Icon(Icons.redo, size: 20),
+            ),
+            if (onSave != null)
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                tooltip: 'Save chart',
+                onPressed: onSave,
+                icon: const Icon(Icons.bookmark_add_outlined, size: 20),
+              ),
+          ],
         ),
       ),
     ),
@@ -160,7 +182,7 @@ IconData _alignIcon(AlignEdge edge) => switch (edge) {
   AlignEdge.bottom => Icons.align_vertical_bottom,
 };
 
-/// The same arrange actions, folded into a menu for narrow windows.
+/// Arrange actions for multi-desk selections, folded into a menu.
 class _ArrangeMenuButton extends StatelessWidget {
   const _ArrangeMenuButton({required this.editor, required this.count});
 
@@ -173,10 +195,11 @@ class _ArrangeMenuButton extends StatelessWidget {
     final canDistribute = count >= 3;
     return MenuAnchor(
       builder: (context, controller, _) => TextButton.icon(
+        style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
         onPressed: canAlign
             ? () => controller.isOpen ? controller.close() : controller.open()
             : null,
-        icon: const Icon(Icons.dashboard_customize_outlined),
+        icon: const Icon(Icons.dashboard_customize_outlined, size: 18),
         label: const Text('Arrange'),
       ),
       menuChildren: [
@@ -227,7 +250,7 @@ class _ArrangeMenuButton extends StatelessWidget {
   }
 }
 
-/// Grid and rotation settings for narrow windows.
+/// Grid and rotation settings menu.
 class _ViewMenuButton extends StatelessWidget {
   const _ViewMenuButton({required this.editor});
 
@@ -237,10 +260,11 @@ class _ViewMenuButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return MenuAnchor(
       builder: (context, controller, _) => IconButton(
+        visualDensity: VisualDensity.compact,
         tooltip: 'Grid and rotation',
         onPressed: () =>
             controller.isOpen ? controller.close() : controller.open(),
-        icon: const Icon(Icons.tune),
+        icon: const Icon(Icons.tune, size: 20),
       ),
       menuChildren: [
         MenuItemButton(
@@ -278,56 +302,12 @@ class _ViewMenuButton extends StatelessWidget {
   }
 }
 
-class CanvasZoomControls extends StatelessWidget {
-  const CanvasZoomControls({
-    required this.editor,
-    required this.view,
-    super.key,
-  });
-
-  final SeatingEditorController editor;
-  final RoomViewController view;
-
-  @override
-  Widget build(BuildContext context) => ListenableBuilder(
-    listenable: view,
-    builder: (context, _) => Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          tooltip: 'Zoom out',
-          onPressed: () => view.zoomAtCenter(1 / 1.2),
-          icon: const Icon(Icons.zoom_out),
-        ),
-        SizedBox(
-          width: 52,
-          child: Text(
-            '${view.zoomPercent}%',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.labelMedium,
-          ),
-        ),
-        IconButton(
-          tooltip: 'Zoom in',
-          onPressed: () => view.zoomAtCenter(1.2),
-          icon: const Icon(Icons.zoom_in),
-        ),
-        IconButton(
-          tooltip: 'Fit the room to the window',
-          onPressed: () => view.fit(editor.layout.roomSize),
-          icon: const Icon(Icons.fit_screen_outlined),
-        ),
-      ],
-    ),
-  );
-}
-
 class _Sep extends StatelessWidget {
   const _Sep();
 
   @override
   Widget build(BuildContext context) => const Padding(
     padding: EdgeInsets.symmetric(horizontal: 4),
-    child: SizedBox(height: 24, child: VerticalDivider(width: 1)),
+    child: SizedBox(height: 20, child: VerticalDivider(width: 1)),
   );
 }

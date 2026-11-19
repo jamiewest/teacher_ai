@@ -77,4 +77,8 @@ const kGroupColors = <int>[
   0xFFA8495C,
   0xFF5C6BC0,
   0xFF8A7B3F,
+  0xFFC75B5B,
+  0xFF2D8FA5,
+  0xFF607080,
+  0xFF9C4B88,
 ];

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../common/color_swatch_grid.dart';
 import '../../domain/models/models.dart';
 
 /// Creates or edits a custom tag.
@@ -84,27 +85,12 @@ class _TagEditorDialogState extends State<TagEditorDialog> {
                 ),
               ),
               const SizedBox(height: 16),
-              Text('Colour', style: Theme.of(context).textTheme.labelMedium),
+              Text('Color', style: Theme.of(context).textTheme.labelMedium),
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: [
-                  for (final color in kGroupColors)
-                    InkWell(
-                      onTap: () => setState(() => _color = color),
-                      child: CircleAvatar(
-                        backgroundColor: Color(color),
-                        radius: 14,
-                        child: _color == color
-                            ? const Icon(
-                                Icons.check,
-                                size: 16,
-                                color: Colors.white,
-                              )
-                            : null,
-                      ),
-                    ),
-                ],
+              ColorSwatchGrid(
+                colors: kGroupColors,
+                selectedColorValue: _color,
+                onSelected: (color) => setState(() => _color = color),
               ),
             ],
           ),

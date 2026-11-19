@@ -40,6 +40,114 @@ class TeacherWorkspace extends ChangeNotifier {
   List<SeatingAssignment> get assignments => _document.assignments;
   List<SchedulePeriod> get periods => _document.periods;
 
+  List<ParticipationEntry> get participation => _document.participation;
+  DateTime? get schoolYearStart => _document.schoolYearStart;
+  DateTime? get schoolYearEnd => _document.schoolYearEnd;
+  List<DateTime> get daysOff => _document.daysOff;
+
+  void setSchoolYear(DateTime start, DateTime end) {
+    if (end.isBefore(start)) throw ArgumentError('End must follow start.');
+    _update(
+      _document.copyWith(
+        schoolYearStart: schoolDate(start),
+        schoolYearEnd: schoolDate(end),
+      ),
+    );
+  }
+
+  void setDayOff(DateTime date, bool off) => _update(
+    _document.copyWith(
+      daysOff: [
+        ...daysOff.where((d) => schoolDate(d) != schoolDate(date)),
+        if (off) schoolDate(date),
+      ],
+    ),
+  );
+
+  int? schoolWeek(DateTime date) {
+    final start = schoolYearStart;
+    if (start == null ||
+        schoolDate(date).isBefore(start) ||
+        (schoolYearEnd != null && schoolDate(date).isAfter(schoolYearEnd!))) {
+      return null;
+    }
+    return calendarDaysBetween(weekStart(start), weekStart(date)) ~/ 7 + 1;
+  }
+
+  List<SchedulePeriod> periodsOn(DateTime date) {
+    final day = schoolDate(date);
+    if ((schoolYearStart != null && day.isBefore(schoolYearStart!)) ||
+        (schoolYearEnd != null && day.isAfter(schoolYearEnd!)) ||
+        daysOff.any((d) => schoolDate(d) == day)) {
+      return [];
+    }
+    return periods
+        .map((p) => p.onDate(date))
+        .whereType<SchedulePeriod>()
+        .sorted((a, b) => a.start.compareTo(b.start));
+  }
+
+  /// Ambiguous overlaps are never used to guess which students are present.
+  SchedulePeriod? currentPeriod(DateTime now) {
+    final minute = now.hour * 60 + now.minute;
+    final matches = periodsOn(now)
+        .where((p) => p.start.minutes <= minute && minute < p.end.minutes)
+        .toList();
+    return matches.length == 1 ? matches.single : null;
+  }
+
+  ClassSection? currentClass(DateTime now) {
+    final period = currentPeriod(now);
+    return period == null || period.kind.isBreak
+        ? null
+        : classSection(period.classSectionId ?? '');
+  }
+
+  ParticipationEntry addParticipation({
+    required String studentId,
+    required String classSectionId,
+    required int delta,
+    DateTime? at,
+  }) {
+    if (delta != 1 && delta != -1) throw ArgumentError('Use +1 or −1.');
+    if (!(classSection(classSectionId)?.studentIds.contains(studentId) ??
+        false)) {
+      throw ArgumentError('Student is not in this class.');
+    }
+    final now = at ?? DateTime.now();
+    final period = currentPeriod(now);
+    final entry = ParticipationEntry.create(
+      studentId: studentId,
+      classSectionId: classSectionId,
+      delta: delta,
+      occurredAt: now,
+      periodId: period?.classSectionId == classSectionId ? period?.id : null,
+    );
+    _update(_document.copyWith(participation: [...participation, entry]));
+    return entry;
+  }
+
+  void undoParticipation(String id) => _update(
+    _document.copyWith(
+      participation: participation.where((e) => e.id != id).toList(),
+    ),
+  );
+
+  int participationTotal(
+    String studentId,
+    String classId,
+    DateTime from,
+    DateTime until,
+  ) => participation
+      .where(
+        (e) =>
+            e.studentId == studentId &&
+            e.classSectionId == classId &&
+            !e.occurredAt.isBefore(from) &&
+            e.occurredAt.isBefore(until),
+      )
+      .fold(0, (sum, e) => sum + e.delta);
+
   /// Tags keyed by id, for the seating rules and desk badges.
   Map<String, StudentTag> get tagsById => {for (final t in tags) t.id: t};
 
@@ -116,6 +224,32 @@ class TeacherWorkspace extends ChangeNotifier {
         period.end.minutes >= 24 * 60 ||
         period.durationMinutes <= 0) {
       throw ArgumentError('Enter a name and an end time after the start time.');
+    }
+    if (period.weekdays.isEmpty ||
+        period.weekdays.any((d) => d < 1 || d > 7) ||
+        period.dayTimes.values.any(
+          (t) =>
+              t.start.minutes < 0 ||
+              t.end.minutes >= 1440 ||
+              t.end.minutes <= t.start.minutes,
+        )) {
+      throw ArgumentError('Choose days and valid start and end times.');
+    }
+    for (final day in period.weekdays) {
+      final times =
+          period.dayTimes[day] ?? PeriodTimes(period.start, period.end);
+      for (final other in periods.where(
+        (p) => p.id != period.id && p.weekdays.contains(day),
+      )) {
+        final otherTimes =
+            other.dayTimes[day] ?? PeriodTimes(other.start, other.end);
+        if (times.start.minutes < otherTimes.end.minutes &&
+            otherTimes.start.minutes < times.end.minutes) {
+          throw ArgumentError(
+            'Overlaps ${other.name} on ${const ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][day - 1]}. Adjust the times first.',
+          );
+        }
+      }
     }
     var next = period.copyWith(name: period.name.trim());
     var nextClasses = classes;

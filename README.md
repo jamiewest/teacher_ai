@@ -178,3 +178,42 @@ manual one does.
 | Right-click / long-press | Desk menu |
 | Ctrl/Cmd + +/- / 0 | Zoom in, out, fit |
 | Shift + click | Add to selection |
+
+
+## Live classroom, weekly schedules, and participation
+
+Seating opens in **Live classroom**. Choose a layout, tap a student’s seat, then
+use **Add 1** or **Deduct 1**. **Tap +1 / Tap −1** scores directly from seats;
+small seats zoom first to avoid accidental scoring. **Undo** reverses the last
+change. The class list also includes unseated students. Points stay attached to
+the student and class when seating changes. **Weekly points** shows totals and
+dated entries for any week, including students removed from the current roster.
+
+The pencil opens the seating builder; the play button returns to live teaching
+and saves changed seating. **Desk pairs** creates 24 seats in 12 editable groups
+of two. Existing zoom, full-room views, group colors, and room fixtures remain
+available on mobile and desktop. Live controls reserve their space so recording
+a point does not shift the seat targets. Live seats also expose accessibility
+labels and actions.
+
+In **Schedule**, edit a period’s recurring weekdays and choose day-specific start
+and end times (for example, condensed Wednesdays). All days retain the same
+class roster and layouts. New overlapping periods are rejected; ambiguous legacy
+schedules do not infer an active class. Set **School year** for numbered weeks,
+and mark individual dates as **No school**. The week arrows browse the calendar;
+**Edit all periods** manages the repeating schedule even on days without classes.
+Schedule edits change the recurring timetable, including past calendar previews;
+participation entries retain their original date, class, and linked period ID.
+
+**Auto / Following schedule** uses the device’s local date and clock to choose
+the current class, refreshing every 15 seconds. Choose a class manually to hold
+it, or choose **Follow current period** to resume automatic selection. Room
+editing holds the class until live teaching resumes. Without an active teaching
+period, the first available class is shown with a visible no-active-period or
+break indication, and manual selection is available.
+
+Storage remains local to the current browser/device. This supports the same UI
+on phone and desktop, but does **not** synchronize their records. Shared accounts
+and a sync backend are required for cross-device continuity. Existing saved
+workspaces load without migration steps; missing schedule fields default to
+Monday–Friday, and historical participation records are never reset each week.

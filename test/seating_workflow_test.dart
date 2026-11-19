@@ -172,7 +172,7 @@ void main() {
     await pumpShell(tester, workspace, const Size(1400, 900));
     final editor = canvasWidget(tester).controller;
     final before = editor.layout.desks.length;
-    await tester.tap(find.text('Design room'));
+    await tester.tap(find.byTooltip('Design room'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Add furniture'));
     await tester.pumpAndSettle();
@@ -194,7 +194,7 @@ void main() {
       final workspace = await loadedWorkspace();
       await pumpShell(tester, workspace, Size(width, 844));
       expect(tester.takeException(), isNull);
-      await tester.tap(find.text('Design room'));
+      await tester.tap(find.byTooltip('Design room'));
       await tester.pumpAndSettle();
       expect(canvasWidget(tester).controller.mode, EditorMode.design);
       expect(tester.takeException(), isNull);

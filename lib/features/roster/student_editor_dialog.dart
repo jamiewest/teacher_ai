@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/responsive.dart';
 import '../../domain/models/models.dart';
 
 /// Result of editing a student, so the caller can tell "saved" from "deleted".
@@ -57,120 +58,142 @@ class _StudentEditorDialogState extends State<StudentEditorDialog> {
   @override
   Widget build(BuildContext context) {
     final existing = widget.student;
+    final titleText = existing == null ? 'Add student' : existing.fullName;
 
-    return AlertDialog(
-      title: Text(existing == null ? 'Add student' : existing.fullName),
-      content: SizedBox(
-        width: 440,
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+    final formBody = Form(
+      key: _formKey,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _first,
-                        validator: (value) =>
-                            value == null || value.trim().isEmpty
-                            ? 'Enter a first name'
-                            : null,
-                        autofocus: true,
-                        decoration: const InputDecoration(
-                          labelText: 'First name',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: _last,
-                        decoration: const InputDecoration(
-                          labelText: 'Last name',
-                        ),
-                      ),
-                    ),
-                  ],
+                Expanded(
+                  child: TextFormField(
+                    controller: _first,
+                    validator: (value) => value == null || value.trim().isEmpty
+                        ? 'Enter a first name'
+                        : null,
+                    autofocus: true,
+                    decoration: const InputDecoration(labelText: 'First name'),
+                  ),
                 ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<GradeLevel>(
-                  initialValue: _grade,
-                  decoration: const InputDecoration(
-                    labelText: 'Grade level',
-                    helperText: 'A class can mix grades',
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _last,
+                    decoration: const InputDecoration(labelText: 'Last name'),
                   ),
-                  items: [
-                    for (final g in GradeLevel.values)
-                      DropdownMenuItem(value: g, child: Text(g.label)),
-                  ],
-                  onChanged: (v) => setState(() => _grade = v ?? _grade),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Periods and classes',
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
-                const Text('Select every class this student attends.'),
-                if (widget.classLabels.isEmpty)
-                  const Text(
-                    'Add a class period in Schedule to start a roster.',
-                  ),
-                for (final entry in widget.classLabels.entries)
-                  CheckboxListTile(
-                    contentPadding: EdgeInsets.zero,
-                    controlAffinity: ListTileControlAffinity.leading,
-                    title: Text(entry.value),
-                    value: _classIds.contains(entry.key),
-                    onChanged: (selected) => setState(() {
-                      if (selected ?? false) {
-                        _classIds.add(entry.key);
-                      } else {
-                        _classIds.remove(entry.key);
-                      }
-                    }),
-                  ),
-                const SizedBox(height: 16),
-                Text('Tags', style: Theme.of(context).textTheme.labelMedium),
-                const SizedBox(height: 8),
-                if (widget.tags.isEmpty)
-                  const Text('No tags defined yet.')
-                else
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      for (final tag in widget.tags)
-                        FilterChip(
-                          avatar: CircleAvatar(
-                            backgroundColor: Color(tag.colorValue),
-                            radius: 7,
-                          ),
-                          label: Text(tag.label),
-                          selected: _tagIds.contains(tag.id),
-                          onSelected: (on) => setState(() {
-                            if (on) {
-                              _tagIds.add(tag.id);
-                            } else {
-                              _tagIds.remove(tag.id);
-                            }
-                          }),
-                        ),
-                    ],
-                  ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _notes,
-                  maxLines: 2,
-                  decoration: const InputDecoration(labelText: 'Notes'),
                 ),
               ],
             ),
-          ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<GradeLevel>(
+              initialValue: _grade,
+              decoration: const InputDecoration(
+                labelText: 'Grade level',
+                helperText: 'A class can mix grades',
+              ),
+              items: [
+                for (final g in GradeLevel.values)
+                  DropdownMenuItem(value: g, child: Text(g.label)),
+              ],
+              onChanged: (v) => setState(() => _grade = v ?? _grade),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Periods and classes',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            const Text('Select every class this student attends.'),
+            if (widget.classLabels.isEmpty)
+              const Text('Add a class period in Schedule to start a roster.'),
+            for (final entry in widget.classLabels.entries)
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                title: Text(entry.value),
+                value: _classIds.contains(entry.key),
+                onChanged: (selected) => setState(() {
+                  if (selected ?? false) {
+                    _classIds.add(entry.key);
+                  } else {
+                    _classIds.remove(entry.key);
+                  }
+                }),
+              ),
+            const SizedBox(height: 16),
+            Text('Tags', style: Theme.of(context).textTheme.labelMedium),
+            const SizedBox(height: 8),
+            if (widget.tags.isEmpty)
+              const Text('No tags defined yet.')
+            else
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final tag in widget.tags)
+                    FilterChip(
+                      avatar: CircleAvatar(
+                        backgroundColor: Color(tag.colorValue),
+                        radius: 7,
+                      ),
+                      label: Text(tag.label),
+                      selected: _tagIds.contains(tag.id),
+                      onSelected: (on) => setState(() {
+                        if (on) {
+                          _tagIds.add(tag.id);
+                        } else {
+                          _tagIds.remove(tag.id);
+                        }
+                      }),
+                    ),
+                ],
+              ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _notes,
+              maxLines: 2,
+              decoration: const InputDecoration(labelText: 'Notes'),
+            ),
+          ],
         ),
       ),
+    );
+
+    if (context.isCompact) {
+      return Dialog.fullscreen(
+        child: Scaffold(
+          appBar: AppBar(
+            leading: IconButton(
+              tooltip: 'Cancel',
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.close),
+            ),
+            title: Text(titleText),
+            actions: [
+              if (existing != null)
+                IconButton(
+                  tooltip: 'Delete student',
+                  onPressed: () => Navigator.of(
+                    context,
+                  ).pop(StudentEditorResult.deleted(existing)),
+                  icon: const Icon(Icons.delete_outline),
+                ),
+              TextButton(onPressed: _save, child: const Text('Save')),
+            ],
+          ),
+          body: SafeArea(
+            child: Padding(padding: const EdgeInsets.all(16), child: formBody),
+          ),
+        ),
+      );
+    }
+
+    return AlertDialog(
+      title: Text(titleText),
+      content: SizedBox(width: 440, child: formBody),
       actions: [
         if (existing != null)
           TextButton(

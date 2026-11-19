@@ -75,6 +75,8 @@ class SchedulePeriod {
     required this.start,
     required this.end,
     this.classSectionId,
+    this.weekdays = const [1, 2, 3, 4, 5],
+    this.dayTimes = const {},
   });
 
   SchedulePeriod.create({
@@ -83,6 +85,8 @@ class SchedulePeriod {
     required this.start,
     required this.end,
     this.classSectionId,
+    this.weekdays = const [1, 2, 3, 4, 5],
+    this.dayTimes = const {},
   }) : id = newId();
 
   final String id;
@@ -94,6 +98,17 @@ class SchedulePeriod {
   /// Set only when [kind] is [PeriodKind.classTime].
   final String? classSectionId;
 
+  final List<int> weekdays;
+
+  /// Overrides retain the same period and roster identity across the week.
+  final Map<int, PeriodTimes> dayTimes;
+
+  SchedulePeriod? onDate(DateTime date) {
+    if (!weekdays.contains(date.weekday)) return null;
+    final times = dayTimes[date.weekday];
+    return times == null ? this : copyWith(start: times.start, end: times.end);
+  }
+
   int get durationMinutes => end.minutes - start.minutes;
 
   SchedulePeriod copyWith({
@@ -103,8 +118,12 @@ class SchedulePeriod {
     TimeOfDayMinutes? end,
     String? classSectionId,
     bool clearSection = false,
+    List<int>? weekdays,
+    Map<int, PeriodTimes>? dayTimes,
   }) => SchedulePeriod(
     id: id,
+    weekdays: weekdays ?? this.weekdays,
+    dayTimes: dayTimes ?? this.dayTimes,
     name: name ?? this.name,
     kind: kind ?? this.kind,
     start: start ?? this.start,
@@ -121,9 +140,21 @@ class SchedulePeriod {
     'start': start.minutes,
     'end': end.minutes,
     'classSectionId': classSectionId,
+    'weekdays': weekdays,
+    'dayTimes': {
+      for (final e in dayTimes.entries) '${e.key}': e.value.toJson(),
+    },
   };
 
   factory SchedulePeriod.fromJson(Map<String, Object?> json) => SchedulePeriod(
+    weekdays: (json['weekdays'] as List<Object?>? ?? [1, 2, 3, 4, 5])
+        .cast<int>(),
+    dayTimes: {
+      for (final e in (json['dayTimes'] as Map<String, Object?>? ?? {}).entries)
+        int.parse(e.key): PeriodTimes.fromJson(
+          e.value! as Map<String, Object?>,
+        ),
+    },
     id: json['id']! as String,
     name: json['name']! as String,
     kind: PeriodKind.fromJson(json['kind'] as String? ?? 'classTime'),
@@ -132,3 +163,24 @@ class SchedulePeriod {
     classSectionId: json['classSectionId'] as String?,
   );
 }
+
+class PeriodTimes {
+  const PeriodTimes(this.start, this.end);
+  final TimeOfDayMinutes start;
+  final TimeOfDayMinutes end;
+  Map<String, Object?> toJson() => {'start': start.minutes, 'end': end.minutes};
+  factory PeriodTimes.fromJson(Map<String, Object?> json) => PeriodTimes(
+    TimeOfDayMinutes((json['start']! as num).toInt()),
+    TimeOfDayMinutes((json['end']! as num).toInt()),
+  );
+}
+
+DateTime schoolDate(DateTime date) => DateTime(date.year, date.month, date.day);
+DateTime weekStart(DateTime date) =>
+    DateTime(date.year, date.month, date.day - date.weekday + 1);
+// UTC arithmetic counts calendar days across daylight-saving changes.
+int calendarDaysBetween(DateTime a, DateTime b) => DateTime.utc(
+  b.year,
+  b.month,
+  b.day,
+).difference(DateTime.utc(a.year, a.month, a.day)).inDays;

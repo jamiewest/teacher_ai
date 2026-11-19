@@ -41,7 +41,7 @@ void main() {
     (tester) async {
       final workspace = await loadedWorkspace();
       await pumpShell(tester, workspace, const Size(1400, 900));
-      await tester.tap(find.text('Design room'));
+      await tester.tap(find.byTooltip('Design room'));
       await tester.pumpAndSettle();
       final visual = firstGroup(tester);
       final editor = canvasWidget(tester).controller;
@@ -95,7 +95,7 @@ void main() {
   ) async {
     final workspace = await loadedWorkspace();
     await pumpShell(tester, workspace, const Size(1400, 900));
-    await tester.tap(find.text('Design room'));
+    await tester.tap(find.byTooltip('Design room'));
     await tester.pumpAndSettle();
     final visual = firstGroup(tester);
     final editor = canvasWidget(tester).controller;
@@ -151,7 +151,7 @@ void main() {
   ) async {
     final workspace = await loadedWorkspace();
     await pumpShell(tester, workspace, const Size(1400, 900));
-    await tester.tap(find.text('Design room'));
+    await tester.tap(find.byTooltip('Design room'));
     await tester.pumpAndSettle();
     final visual = firstGroup(tester);
     await tester.tapAt(
@@ -174,9 +174,9 @@ void main() {
     ) async {
       final workspace = await loadedWorkspace();
       await pumpShell(tester, workspace, size);
-      await tester.tap(find.text('Design room'));
+      await tester.tap(find.byTooltip('Design room'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Expand view'));
+      await tester.tap(find.byTooltip('Expand view'));
       await tester.pumpAndSettle();
       final visual = firstGroup(tester);
       await tester.tapAt(
@@ -193,7 +193,7 @@ void main() {
       expect(tester.takeException(), isNull);
       Navigator.of(tester.element(find.byType(InspectorPanel))).pop();
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Restore view'));
+      await tester.tap(find.byTooltip('Restore view'));
       await tester.pumpAndSettle();
       expect(editor.selectedGroup?.id, visual.group.id);
       expect(editor.groupPositionLocked, isTrue);

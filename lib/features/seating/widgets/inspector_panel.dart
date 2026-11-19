@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../common/color_swatch_grid.dart';
 import '../../../data/teacher_workspace.dart';
 import '../../../domain/models/models.dart';
 import '../../../domain/ops/layout_ops.dart';
@@ -274,15 +275,12 @@ class _DeskSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        TextFormField(
+        _AutoSaveTextField(
           key: ValueKey('label-${desk.id}'),
           initialValue: desk.label,
-          decoration: const InputDecoration(
-            labelText: 'Label',
-            helperText: 'Shown when no student is seated here',
-            isDense: true,
-          ),
-          onFieldSubmitted: (value) => editor.setDeskLabel(desk.id, value),
+          labelText: 'Label',
+          helperText: 'Shown when no student is seated here',
+          onCommit: (value) => editor.setDeskLabel(desk.id, value),
         ),
         const Divider(height: 24),
         if (group != null)
@@ -530,16 +528,14 @@ class _GroupSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const _SectionTitle('Group properties'),
-        TextFormField(
-          key: ValueKey('group-name-${group.id}-${group.name}'),
+        _AutoSaveTextField(
+          key: ValueKey('group-name-${group.id}'),
           initialValue: group.name,
-          decoration: const InputDecoration(
-            labelText: 'Group name',
-            isDense: true,
-          ),
-          onFieldSubmitted: (name) {
-            if (name.trim().isNotEmpty) {
-              editor.renameGroup(group.id, name.trim());
+          labelText: 'Group name',
+          onCommit: (name) {
+            final trimmed = name.trim();
+            if (trimmed.isNotEmpty) {
+              editor.renameGroup(group.id, trimmed);
             }
           },
         ),
@@ -548,14 +544,17 @@ class _GroupSection extends StatelessWidget {
           '${desks.length} desks · Drag the group outline to move together.',
           style: Theme.of(context).textTheme.bodySmall,
         ),
+        const SizedBox(height: 12),
+        Text('Group color', style: Theme.of(context).textTheme.labelMedium),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            const Text('Group colour'),
-            const Spacer(),
-            _GroupColorPicker(editor: editor, group: group),
-          ],
+        ColorSwatchGrid(
+          colors: kGroupColors,
+          selectedColorValue: group.colorValue,
+          radius: 11,
+          spacing: 6,
+          onSelected: (color) => editor.setGroupColor(group.id, color),
         ),
+        const SizedBox(height: 4),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: const Text('Lock group position'),
@@ -621,24 +620,101 @@ class _GroupColorPicker extends StatelessWidget {
   final DeskGroup group;
 
   @override
-  Widget build(BuildContext context) => PopupMenuButton<int>(
-    tooltip: 'Group colour',
-    icon: CircleAvatar(backgroundColor: Color(group.colorValue), radius: 10),
-    itemBuilder: (context) => [
-      for (final color in kGroupColors)
-        PopupMenuItem(
-          value: color,
-          child: Row(
-            children: [
-              CircleAvatar(backgroundColor: Color(color), radius: 9),
-              const SizedBox(width: 10),
-              Text(color == group.colorValue ? 'Current' : 'Use this'),
-            ],
-          ),
+  Widget build(BuildContext context) => IconButton(
+    tooltip: 'Group color',
+    onPressed: () => showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('${group.name} color'),
+        content: ColorSwatchGrid(
+          colors: kGroupColors,
+          selectedColorValue: group.colorValue,
+          onSelected: (color) {
+            editor.setGroupColor(group.id, color);
+            Navigator.of(context).pop();
+          },
         ),
-    ],
-    onSelected: (color) => editor.setGroupColor(group.id, color),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Done'),
+          ),
+        ],
+      ),
+    ),
+    icon: CircleAvatar(backgroundColor: Color(group.colorValue), radius: 10),
   );
+}
+
+/// Text field that commits both on Enter/Done and when focus leaves the field.
+class _AutoSaveTextField extends StatefulWidget {
+  const _AutoSaveTextField({
+    required this.initialValue,
+    required this.labelText,
+    required this.onCommit,
+    this.helperText,
+    super.key,
+  });
+
+  final String initialValue;
+  final String labelText;
+  final String? helperText;
+  final ValueChanged<String> onCommit;
+
+  @override
+  State<_AutoSaveTextField> createState() => _AutoSaveTextFieldState();
+}
+
+class _AutoSaveTextFieldState extends State<_AutoSaveTextField> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initialValue,
+  );
+  late final FocusNode _focusNode = FocusNode()..addListener(_onFocusChange);
+  late String _lastCommitted = widget.initialValue;
+
+  @override
+  void didUpdateWidget(_AutoSaveTextField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialValue != widget.initialValue && !_focusNode.hasFocus) {
+      _controller.text = widget.initialValue;
+      _lastCommitted = widget.initialValue;
+    }
+  }
+
+  void _onFocusChange() {
+    if (!_focusNode.hasFocus) {
+      _commit();
+    }
+  }
+
+  void _commit() {
+    final text = _controller.text;
+    if (text == _lastCommitted) return;
+    _lastCommitted = text;
+    widget.onCommit(text);
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_onFocusChange);
+    _focusNode.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: _controller,
+      focusNode: _focusNode,
+      decoration: InputDecoration(
+        labelText: widget.labelText,
+        helperText: widget.helperText,
+        isDense: true,
+      ),
+      onFieldSubmitted: (_) => _commit(),
+    );
+  }
 }
 
 IconData _alignIconFor(AlignEdge edge) => switch (edge) {

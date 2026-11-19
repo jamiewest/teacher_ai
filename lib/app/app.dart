@@ -2,11 +2,12 @@ import 'package:extensions_flutter/extensions_flutter.dart';
 import 'package:flutter/material.dart';
 
 import '../data/teacher_workspace.dart';
+import 'app_settings.dart';
 import 'home_shell.dart';
 import 'theme.dart';
 
-/// Root widget. Resolves the workspace from the host container and holds the
-/// app on a splash until the saved data has loaded.
+/// Root widget. Resolves the workspace and appearance settings from the host
+/// container and holds the app on a splash until saved data has loaded.
 class TeacherApp extends StatefulWidget {
   const TeacherApp({required this.services, super.key});
 
@@ -19,7 +20,13 @@ class TeacherApp extends StatefulWidget {
 class _TeacherAppState extends State<TeacherApp> {
   late final TeacherWorkspace _workspace = widget.services
       .getRequiredService<TeacherWorkspace>();
-  late final Future<void> _ready = _workspace.load();
+  late final AppSettingsController _settings =
+      widget.services.getService<AppSettingsController>() ??
+      AppSettingsController.memory();
+  late final Future<void> _ready = Future.wait([
+    _workspace.load(),
+    _settings.load(),
+  ]).then((_) {});
   FlutterApplicationLifetime? _lifetime;
 
   @override
@@ -28,9 +35,8 @@ class _TeacherAppState extends State<TeacherApp> {
     // Saves are debounced, so a tab closed mid-edit would drop the last few
     // hundred milliseconds of work. The host's lifecycle events are the hook
     // for forcing that write out.
-    _lifetime =
-        widget.services.getService<HostApplicationLifetime>()
-            as FlutterApplicationLifetime?;
+    final lifetime = widget.services.getService<HostApplicationLifetime>();
+    _lifetime = lifetime is FlutterApplicationLifetime ? lifetime : null;
     _lifetime?.applicationPaused.add(_flush);
     _lifetime?.applicationDetached.add(_flush);
   }
@@ -46,23 +52,30 @@ class _TeacherAppState extends State<TeacherApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Teacher AI',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
-      home: FutureBuilder<void>(
-        future: _ready,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const _SplashScreen();
-          }
-          if (snapshot.hasError) {
-            return _StartupError(error: snapshot.error!);
-          }
-          return HomeShell(workspace: _workspace);
-        },
-      ),
+    return ListenableBuilder(
+      listenable: _settings,
+      builder: (context, _) {
+        final settings = _settings.settings;
+        return MaterialApp(
+          title: 'Teacher AI',
+          debugShowCheckedModeBanner: false,
+          themeMode: settings.themeMode,
+          theme: AppTheme.light(settings),
+          darkTheme: AppTheme.dark(settings),
+          home: FutureBuilder<void>(
+            future: _ready,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const _SplashScreen();
+              }
+              if (snapshot.hasError) {
+                return _StartupError(error: snapshot.error!);
+              }
+              return HomeShell(workspace: _workspace, settings: _settings);
+            },
+          ),
+        );
+      },
     );
   }
 }

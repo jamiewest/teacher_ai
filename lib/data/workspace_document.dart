@@ -14,6 +14,10 @@ class WorkspaceDocument {
     this.layouts = const <RoomLayout>[],
     this.assignments = const <SeatingAssignment>[],
     this.periods = const <SchedulePeriod>[],
+    this.participation = const [],
+    this.schoolYearStart,
+    this.schoolYearEnd,
+    this.daysOff = const [],
   });
 
   /// Bumped whenever the on-disk shape changes incompatibly.
@@ -28,6 +32,10 @@ class WorkspaceDocument {
   /// Full assignment history, newest last.
   final List<SeatingAssignment> assignments;
   final List<SchedulePeriod> periods;
+  final List<ParticipationEntry> participation;
+  final DateTime? schoolYearStart;
+  final DateTime? schoolYearEnd;
+  final List<DateTime> daysOff;
 
   WorkspaceDocument copyWith({
     List<Subject>? subjects,
@@ -37,6 +45,10 @@ class WorkspaceDocument {
     List<RoomLayout>? layouts,
     List<SeatingAssignment>? assignments,
     List<SchedulePeriod>? periods,
+    List<ParticipationEntry>? participation,
+    DateTime? schoolYearStart,
+    DateTime? schoolYearEnd,
+    List<DateTime>? daysOff,
   }) => WorkspaceDocument(
     subjects: subjects ?? this.subjects,
     students: students ?? this.students,
@@ -45,10 +57,18 @@ class WorkspaceDocument {
     layouts: layouts ?? this.layouts,
     assignments: assignments ?? this.assignments,
     periods: periods ?? this.periods,
+    participation: participation ?? this.participation,
+    schoolYearStart: schoolYearStart ?? this.schoolYearStart,
+    schoolYearEnd: schoolYearEnd ?? this.schoolYearEnd,
+    daysOff: daysOff ?? this.daysOff,
   );
 
   Map<String, Object?> toJson() => {
     'schemaVersion': schemaVersion,
+    'participation': participation.map((e) => e.toJson()).toList(),
+    'schoolYearStart': schoolYearStart?.toIso8601String(),
+    'schoolYearEnd': schoolYearEnd?.toIso8601String(),
+    'daysOff': daysOff.map((e) => e.toIso8601String()).toList(),
     'subjects': subjects.map((e) => e.toJson()).toList(growable: false),
     'students': students.map((e) => e.toJson()).toList(growable: false),
     'tags': tags.map((e) => e.toJson()).toList(growable: false),
@@ -65,6 +85,14 @@ class WorkspaceDocument {
             .toList(growable: false);
 
     return WorkspaceDocument(
+      participation: parse('participation', ParticipationEntry.fromJson),
+      schoolYearStart: DateTime.tryParse(
+        json['schoolYearStart'] as String? ?? '',
+      ),
+      schoolYearEnd: DateTime.tryParse(json['schoolYearEnd'] as String? ?? ''),
+      daysOff: (json['daysOff'] as List<Object?>? ?? [])
+          .map((e) => DateTime.parse(e! as String))
+          .toList(),
       subjects: parse('subjects', Subject.fromJson),
       students: parse('students', Student.fromJson),
       tags: parse('tags', StudentTag.fromJson),

@@ -3,17 +3,17 @@ import 'package:flutter/material.dart';
 
 /// Width bands the layout responds to.
 ///
-/// The seating editor is the reason these exist: on a phone the canvas needs
-/// the whole window and the panels become sheets, while on a desktop the
-/// roster and inspector can sit beside it permanently.
+/// On compact widths the classroom canvas takes the full window and secondary
+/// panels open as sheets; on expanded widths the roster, inspector, or live
+/// controls dock beside the canvas.
 enum FormFactor {
-  /// Phone, or a narrow browser window. One thing at a time.
+  /// Phone, or a narrow browser window. One primary view at a time.
   compact,
 
-  /// Tablet or split-screen. Canvas plus one docked panel.
+  /// Tablet or split-screen. Canvas plus top bar and adaptive sheets.
   medium,
 
-  /// Desktop. Canvas plus roster and inspector at once.
+  /// Desktop or landscape tablet. Canvas plus docked side panel.
   expanded;
 
   bool get isCompact => this == FormFactor.compact;
@@ -21,7 +21,7 @@ enum FormFactor {
   bool get isExpanded => this == FormFactor.expanded;
 
   /// True when there is room to dock a panel beside the canvas.
-  bool get canDockPanels => this != FormFactor.compact;
+  bool get canDockPanels => this == FormFactor.expanded;
 }
 
 /// Whether the user is driving with a precise pointer or a finger.
@@ -33,8 +33,8 @@ enum InputMode { pointer, touch }
 class Breakpoints {
   const Breakpoints._();
 
-  static const double compact = 700;
-  static const double medium = 1150;
+  static const double compact = 600;
+  static const double medium = 960;
 
   static FormFactor formFactorFor(double width) {
     if (width < compact) return FormFactor.compact;
@@ -50,6 +50,9 @@ extension ResponsiveContext on BuildContext {
 
   bool get isCompact => formFactor.isCompact;
   bool get isExpanded => formFactor.isExpanded;
+
+  /// True for short landscape phone viewports where vertical space is scarce.
+  bool get isShortViewport => MediaQuery.sizeOf(this).height < 520;
 
   /// Best guess at the primary input device.
   ///

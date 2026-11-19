@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../../app/responsive.dart';
 import '../../data/teacher_workspace.dart';
 import '../../domain/models/models.dart';
-import 'student_editor_dialog.dart';
 import 'roster_membership_dialog.dart';
+import 'student_editor_dialog.dart';
 import 'tag_editor_dialog.dart';
 
 /// Students and the tags applied to them.
@@ -17,20 +17,31 @@ class RosterPage extends StatefulWidget {
     required this.workspace,
     required this.section,
     this.onSelectClass,
+    this.onOpenSettings,
     super.key,
   });
 
   final TeacherWorkspace workspace;
   final ClassSection? section;
   final ValueChanged<String>? onSelectClass;
+  final VoidCallback? onOpenSettings;
 
   @override
   State<RosterPage> createState() => _RosterPageState();
 }
 
-class _RosterPageState extends State<RosterPage> {
+class _RosterPageState extends State<RosterPage>
+    with SingleTickerProviderStateMixin {
   String? _filter;
   String _query = '';
+  late final TabController _tabController = TabController(
+    length: 2,
+    vsync: this,
+  )..addListener(_onTabChanged);
+
+  void _onTabChanged() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void didUpdateWidget(RosterPage oldWidget) {
@@ -38,6 +49,13 @@ class _RosterPageState extends State<RosterPage> {
     if (oldWidget.section?.id != widget.section?.id) {
       _filter = null;
     }
+  }
+
+  @override
+  void dispose() {
+    _tabController.removeListener(_onTabChanged);
+    _tabController.dispose();
+    super.dispose();
   }
 
   @override
@@ -60,55 +78,68 @@ class _RosterPageState extends State<RosterPage> {
                     ),
               )
               .toList();
+
+      final classDropdown = DropdownButtonFormField<String>(
+        key: ValueKey(filter),
+        initialValue:
+            section?.id ?? (filter == 'unassigned' ? 'unassigned' : 'all'),
+        isExpanded: true,
+        decoration: const InputDecoration(
+          labelText: 'Period / class',
+          isDense: true,
+        ),
+        items: [
+          const DropdownMenuItem(value: 'all', child: Text('All students')),
+          const DropdownMenuItem(
+            value: 'unassigned',
+            child: Text('Unassigned students'),
+          ),
+          for (final item in workspace.classes)
+            DropdownMenuItem(
+              value: item.id,
+              child: Text(
+                workspace.classLabel(item),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+        ],
+        onChanged: (value) {
+          if (value == null) return;
+          setState(() => _filter = value);
+          if (workspace.classSection(value) != null) {
+            widget.onSelectClass?.call(value);
+          }
+        },
+      );
+
+      final searchField = TextField(
+        decoration: const InputDecoration(
+          labelText: 'Search students',
+          prefixIcon: Icon(Icons.search),
+          isDense: true,
+        ),
+        onChanged: (value) => setState(() => _query = value),
+      );
+
       final roster = Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                DropdownButtonFormField<String>(
-                  key: ValueKey(filter),
-                  initialValue:
-                      section?.id ??
-                      (filter == 'unassigned' ? 'unassigned' : 'all'),
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Period / class',
+                if (context.isCompact) ...[
+                  classDropdown,
+                  const SizedBox(height: 10),
+                  searchField,
+                ] else
+                  Row(
+                    children: [
+                      Expanded(child: classDropdown),
+                      const SizedBox(width: 12),
+                      Expanded(child: searchField),
+                    ],
                   ),
-                  items: [
-                    const DropdownMenuItem(
-                      value: 'all',
-                      child: Text('All students'),
-                    ),
-                    const DropdownMenuItem(
-                      value: 'unassigned',
-                      child: Text('Unassigned students'),
-                    ),
-                    for (final item in workspace.classes)
-                      DropdownMenuItem(
-                        value: item.id,
-                        child: Text(
-                          workspace.classLabel(item),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                  ],
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setState(() => _filter = value);
-                    if (workspace.classSection(value) != null)
-                      widget.onSelectClass?.call(value);
-                  },
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  decoration: const InputDecoration(
-                    labelText: 'Search students',
-                    prefixIcon: Icon(Icons.search),
-                  ),
-                  onChanged: (value) => setState(() => _query = value),
-                ),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 12,
@@ -117,9 +148,12 @@ class _RosterPageState extends State<RosterPage> {
                     Text('${students.length} students'),
                     if (section != null)
                       TextButton.icon(
+                        style: TextButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                        ),
                         onPressed: () =>
                             manageRoster(context, workspace, section),
-                        icon: const Icon(Icons.playlist_add_check),
+                        icon: const Icon(Icons.playlist_add_check, size: 18),
                         label: const Text('Manage students'),
                       ),
                   ],
@@ -130,6 +164,7 @@ class _RosterPageState extends State<RosterPage> {
           Expanded(child: _studentsList(students, section)),
         ],
       );
+
       if (context.isExpanded) {
         return Scaffold(
           appBar: AppBar(title: const Text('Roster')),
@@ -137,7 +172,10 @@ class _RosterPageState extends State<RosterPage> {
             children: [
               Expanded(child: roster),
               const VerticalDivider(width: 1),
-              SizedBox(width: 340, child: _tagsList(workspace.tags)),
+              SizedBox(
+                width: 340,
+                child: _tagsList(workspace.tags, showInlineAdd: true),
+              ),
             ],
           ),
           floatingActionButton: FloatingActionButton.extended(
@@ -147,24 +185,37 @@ class _RosterPageState extends State<RosterPage> {
           ),
         );
       }
-      return DefaultTabController(
-        length: 2,
-        child: Scaffold(
-          appBar: AppBar(
-            title: const Text('Roster'),
-            bottom: const TabBar(
-              tabs: [
-                Tab(text: 'Students'),
-                Tab(text: 'Tags'),
-              ],
-            ),
+
+      final onTagsTab = _tabController.index == 1;
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Roster'),
+          actions: [
+            if (context.isCompact && widget.onOpenSettings != null)
+              IconButton(
+                tooltip: 'Settings',
+                onPressed: widget.onOpenSettings,
+                icon: const Icon(Icons.settings_outlined),
+              ),
+          ],
+          bottom: TabBar(
+            controller: _tabController,
+            tabs: const [
+              Tab(text: 'Students'),
+              Tab(text: 'Tags'),
+            ],
           ),
-          body: TabBarView(children: [roster, _tagsList(workspace.tags)]),
-          floatingActionButton: FloatingActionButton(
-            tooltip: 'Add student',
-            onPressed: () => _editStudent(null, section),
-            child: const Icon(Icons.person_add_alt),
-          ),
+        ),
+        body: TabBarView(
+          controller: _tabController,
+          children: [roster, _tagsList(workspace.tags, showInlineAdd: false)],
+        ),
+        floatingActionButton: FloatingActionButton(
+          tooltip: onTagsTab ? 'New tag' : 'Add student',
+          onPressed: onTagsTab
+              ? () => _editTag(null)
+              : () => _editStudent(null, section),
+          child: Icon(onTagsTab ? Icons.add : Icons.person_add_alt),
         ),
       );
     },
@@ -224,17 +275,19 @@ class _RosterPageState extends State<RosterPage> {
     );
   }
 
-  Widget _tagsList(List<StudentTag> tags) {
+  Widget _tagsList(List<StudentTag> tags, {required bool showInlineAdd}) {
     return Column(
       children: [
         ListTile(
           title: Text('Tags', style: Theme.of(context).textTheme.titleSmall),
           subtitle: const Text('Used when shuffling, and by AI later'),
-          trailing: IconButton.filledTonal(
-            tooltip: 'New tag',
-            onPressed: () => _editTag(null),
-            icon: const Icon(Icons.add),
-          ),
+          trailing: showInlineAdd
+              ? IconButton.filledTonal(
+                  tooltip: 'New tag',
+                  onPressed: () => _editTag(null),
+                  icon: const Icon(Icons.add),
+                )
+              : null,
         ),
         const Divider(height: 1),
         Expanded(

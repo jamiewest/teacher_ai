@@ -28,6 +28,8 @@ class RoomCanvas extends StatefulWidget {
     required this.view,
     required this.workspace,
     this.onSeatTapped,
+    this.readOnly = false,
+    this.scores = const {},
     this.onDeskMenu,
     this.onGroupTapped,
     this.onGroupMenu,
@@ -37,6 +39,8 @@ class RoomCanvas extends StatefulWidget {
   final SeatingEditorController controller;
   final RoomViewController view;
   final TeacherWorkspace workspace;
+  final bool readOnly;
+  final Map<String, int> scores;
 
   /// Fired when an already-selected seat is tapped again — the "act on this
   /// seat" gesture, used instead of a double tap so it works on touch.
@@ -129,8 +133,14 @@ class _RoomCanvasState extends State<RoomCanvas> {
                     size: Size.infinite,
                     painter: RoomPainter(
                       layout: _editor.layout,
+                      onSeatTap: widget.readOnly
+                          ? (desk) {
+                              _editor.selectOnly(desk.id);
+                              widget.onSeatTapped?.call(desk);
+                            }
+                          : null,
                       visuals: _buildVisuals(),
-                      palette: RoomPalette(Theme.of(context).colorScheme),
+                      palette: RoomPalette.of(context),
                       textCache: _textCache,
                       scale: _view.scale,
                       pan: _view.pan,
@@ -173,6 +183,9 @@ class _RoomCanvasState extends State<RoomCanvas> {
           final student = _editor.studentAt(desk.id);
           return DeskVisual(
             desk: desk,
+            participationScore: student == null
+                ? null
+                : widget.scores[student.id],
             studentName: student?.shortName,
             studentInitials: student?.initials,
             // Three dots is all that fits on a desk before it turns to noise.
@@ -251,6 +264,15 @@ class _RoomCanvasState extends State<RoomCanvas> {
     _focusNode.requestFocus();
     final roomPoint = _view.toRoom(details.localPosition);
 
+    if (widget.readOnly) {
+      final desk = _deskAt(roomPoint);
+      if (desk != null && desk.isSeat) {
+        _editor.selectOnly(desk.id);
+        widget.onSeatTapped?.call(desk);
+      }
+      return;
+    }
+
     if (_editor.tool == EditorTool.addDesk) {
       _editor.addDesk(roomPoint);
       return;
@@ -305,6 +327,7 @@ class _RoomCanvasState extends State<RoomCanvas> {
       _openMenuAt(details.localPosition, details.globalPosition);
 
   void _openMenuAt(Offset localPosition, Offset globalPosition) {
+    if (widget.readOnly) return;
     final desk = _deskAt(_view.toRoom(localPosition));
     if (desk == null) {
       final group = _groupAt(_view.toRoom(localPosition));
@@ -325,7 +348,8 @@ class _RoomCanvasState extends State<RoomCanvas> {
     _gestureStartScale = _view.scale;
     _gestureStartRoomFocal = _view.toRoom(details.localFocalPoint);
 
-    if (_editor.mode == EditorMode.seating ||
+    if (widget.readOnly ||
+        _editor.mode == EditorMode.seating ||
         details.pointerCount > 1 ||
         _editor.tool == EditorTool.pan) {
       _mode = _GestureMode.panZoom;
@@ -482,6 +506,7 @@ class _RoomCanvasState extends State<RoomCanvas> {
   // --- Keyboard ------------------------------------------------------------
 
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
+    if (widget.readOnly) return KeyEventResult.ignored;
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }

@@ -64,8 +64,9 @@ class SeatingEditorController extends ChangeNotifier {
     for (var i = 0; i < _redo.length; i++) {
       _redo[i] = _forCurrentRoster(_redo[i]);
     }
-    if (_interactionBaseline != null)
+    if (_interactionBaseline != null) {
       _interactionBaseline = _forCurrentRoster(_interactionBaseline!);
+    }
     if (!_rosterIds.contains(_pendingStudentId)) _pendingStudentId = null;
     notifyListeners();
   }

@@ -8,6 +8,11 @@ import '../../../domain/ops/layout_presets.dart';
 enum LayoutPreset {
   blank('Empty room', Icons.crop_square, 'Add your own desks and furniture'),
   rows('Rows', Icons.view_stream, '25 seats · Independent work'),
+  pairs(
+    'Desk pairs',
+    Icons.people_alt_outlined,
+    '24 seats · Twelve groups of two',
+  ),
   pods('Kagan pods', Icons.group_work, '24 seats · Six teams of four'),
   horseshoe(
     'Horseshoe',

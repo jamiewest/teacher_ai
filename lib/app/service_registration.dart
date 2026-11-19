@@ -4,6 +4,7 @@ import 'package:extensions/logging.dart';
 import '../data/key_value_store.dart';
 import '../data/teacher_repository.dart';
 import '../data/teacher_workspace.dart';
+import 'app_settings.dart';
 
 /// Registers the app's services with the host container.
 ///
@@ -12,6 +13,10 @@ import '../data/teacher_workspace.dart';
 extension TeacherServiceRegistration on ServiceCollection {
   ServiceCollection addTeacherServices({KeyValueStore? store}) {
     addSingleton<KeyValueStore>((_) => store ?? SharedPreferencesStore());
+
+    addSingleton<AppSettingsController>(
+      (sp) => AppSettingsController(sp.getRequiredService<KeyValueStore>()),
+    );
 
     addSingleton<TeacherRepository>(
       (sp) => StoredTeacherRepository(

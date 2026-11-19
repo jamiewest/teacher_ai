@@ -73,6 +73,7 @@ RoomLayout buildPresetLayout({
       ],
       notes: 'Straight rows for independent work and assessments.',
     ),
+    'pairs' => _pairs(name, classSectionId, roomWidth, roomHeight, fixtures),
     'pods' => _pods(name, classSectionId, roomWidth, roomHeight, fixtures),
     'horseshoe' => _horseshoe(
       name,
@@ -155,8 +156,7 @@ RoomLayout _horseshoe(
   void place(Offset position) {
     final toFocus = focus - position;
     // Desks face "up" at 0 degrees, so the angle is measured off the +Y axis.
-    final degrees =
-        math.atan2(toFocus.dx, -toFocus.dy) * 180 / math.pi;
+    final degrees = math.atan2(toFocus.dx, -toFocus.dy) * 180 / math.pi;
     desks.add(
       Desk.create(
         x: position.dx,
@@ -190,5 +190,45 @@ RoomLayout _horseshoe(
     roomHeight: roomHeight,
     desks: [...desks, ...fixtures],
     notes: 'Open U for whole-class discussion and number talks.',
+  );
+}
+
+/// Twelve side-by-side pairs facing the board, with aisles between groups.
+RoomLayout _pairs(
+  String name,
+  String? sectionId,
+  double width,
+  double height,
+  List<Desk> fixtures,
+) {
+  final desks = <Desk>[];
+  final groups = <DeskGroup>[];
+  for (var row = 0; row < 4; row++) {
+    for (var col = 0; col < 3; col++) {
+      final center = Offset(
+        width * (col + 0.5) / 3,
+        250 + row * (height - 340) / 3,
+      );
+      final pair = [
+        for (final dx in [-32.0, 32.0])
+          Desk.create(x: center.dx + dx, y: center.dy),
+      ];
+      final group = DeskGroup.create(
+        name: 'Pair ${groups.length + 1}',
+        deskIds: pair.map((d) => d.id).toList(),
+        colorValue: kGroupColors[groups.length % kGroupColors.length],
+      );
+      groups.add(group);
+      desks.addAll(pair.map((d) => d.copyWith(groupId: group.id)));
+    }
+  }
+  return RoomLayout.create(
+    name: name,
+    classSectionId: sectionId,
+    roomWidth: width,
+    roomHeight: height,
+    desks: [...desks, ...fixtures],
+    groups: groups,
+    notes: 'Partners facing the board, with clear aisles.',
   );
 }
