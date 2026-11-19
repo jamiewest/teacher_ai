@@ -14,6 +14,8 @@ Every AI commit must update this file **in the same commit**:
 
 ## Current State
 
+- The root `Dockerfile` builds the hosted Flutter client and .NET API into one image. Railway can build it with the repository root as its source once the hosted app sources are available on the deployment branch.
+
 - **Architecture**: `teacher_ai` runs in two build modes from the same Flutter codebase:
   - **Local / demo mode** (`TEACHER_CLOUD=false`, default): Single-blob `WorkspaceDocument` (`schemaVersion = 1`) in `SharedPreferencesStore` / `localStorage`, seeded with a sample Algebra I class on first run, deployed to GitHub Pages via `.github/workflows/pages.yml`.
   - **Hosted / cloud mode** (`TEACHER_CLOUD=true`): Account-scoped Drift/SQLite `Replica` (`schemaVersion = 2`) and `CloudRepository` syncing atomic record batches against an ASP.NET Core 10 Minimal API (`backend/TeacherAI.Api`) backed by PostgreSQL 17, Auth0 OIDC (cookie + CSRF on same-origin web; PKCE + Bearer JWT on native iOS/Android/macOS), .NET Aspire 13.6 (`backend/TeacherAI.AppHost`), and Raspberry Pi ARM64 Docker Compose deployment (`backend/deploy/`).
@@ -43,6 +45,12 @@ From the 2026-11-19 architecture review (ordered by severity):
    - `README.md` still contains stale local-only statements in the Architecture table (line 79) and final paragraph (lines 216–220) that conflict with the hosted sync description at the top.
 
 ## Change Log
+
+### 2026-11-19 — Add a root Dockerfile for Railway source builds
+
+- Added a multi-stage build using the Flutter version pinned in CI, the existing offline web build script, and the .NET 10 SDK and runtime. The app runs as the unprivileged .NET user and listens on Railway’s `PORT`, with 8080 as the local default. The entrypoint also accepts `--migrate-only`.
+- Added an allowlist in `.dockerignore` so Docker receives the app sources and skips local configuration, generated outputs, and database credentials. Verified the build context and ran Docker’s build check.
+- The cold Linux build completed dependency restore and reached Flutter compilation before the local Docker VM stopped under disk pressure. For the runtime test, built Flutter locally from the filtered source and supplied its output as the web stage. The resulting Linux AMD64 image ran migrations against disposable PostgreSQL 17, served the web app and offline assets, returned 204 for readiness on a custom port, and returned 401 for an anonymous workspace request. Restored and verified the original preview, including sign-in. A complete Railway-hosted build remains to be verified.
 
 ### 2026-11-19 — Refine Material 3 theme, schedule period cards, and seating header pills
 

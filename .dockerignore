@@ -1,0 +1,12 @@
+# Send only the inputs needed to build the hosted classroom.
+**
+!pubspec.yaml
+!pubspec.lock
+!lib/**
+!web/**
+!tool/build_cloud_web.py
+!backend/TeacherAI.Api/*.cs
+!backend/TeacherAI.Api/*.csproj
+!backend/TeacherAI.Api/Migrations/*.cs
+!backend/TeacherAI.ServiceDefaults/*.cs
+!backend/TeacherAI.ServiceDefaults/*.csproj
