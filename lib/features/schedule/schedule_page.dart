@@ -94,9 +94,13 @@ class _SchedulePageState extends State<SchedulePage> {
         appBar: AppBar(
           title: const Text('Schedule'),
           actions: [
-            TextButton(
-              onPressed: _schoolYear,
-              child: const Text('School year'),
+            Tooltip(
+              message: 'Set start and end dates to number school weeks',
+              excludeFromSemantics: true,
+              child: TextButton(
+                onPressed: _schoolYear,
+                child: const Text('School year'),
+              ),
             ),
             if (isCompact && widget.onOpenSettings != null)
               IconButton(
@@ -106,10 +110,14 @@ class _SchedulePageState extends State<SchedulePage> {
               ),
           ],
         ),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () => _edit(context, null),
-          icon: const Icon(Icons.add),
-          label: const Text('Add period'),
+        floatingActionButton: Tooltip(
+          message: 'Add a class period or break to your weekly schedule',
+          excludeFromSemantics: true,
+          child: FloatingActionButton.extended(
+            onPressed: () => _edit(context, null),
+            icon: const Icon(Icons.add),
+            label: const Text('Add period'),
+          ),
         ),
         body: Center(
           child: ConstrainedBox(
@@ -135,22 +143,26 @@ class _SchedulePageState extends State<SchedulePage> {
                             icon: const Icon(Icons.chevron_left),
                           ),
                           Expanded(
-                            child: TextButton(
-                              onPressed: () async {
-                                final picked = await showDatePicker(
-                                  context: context,
-                                  initialDate: _date,
-                                  firstDate: DateTime(2000),
-                                  lastDate: DateTime(2100),
-                                );
-                                if (picked != null) {
-                                  setState(() => _date = picked);
-                                }
-                              },
-                              child: Text(
-                                '${workspace.schoolWeek(_date) == null ? 'Week of' : 'Week ${workspace.schoolWeek(_date)} ·'} ${weekStart(_date).month}/${weekStart(_date).day}/${weekStart(_date).year}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                            child: Tooltip(
+                              message: 'Pick a date on the calendar',
+                              excludeFromSemantics: true,
+                              child: TextButton(
+                                onPressed: () async {
+                                  final picked = await showDatePicker(
+                                    context: context,
+                                    initialDate: _date,
+                                    firstDate: DateTime(2000),
+                                    lastDate: DateTime(2100),
+                                  );
+                                  if (picked != null) {
+                                    setState(() => _date = picked);
+                                  }
+                                },
+                                child: Text(
+                                  '${workspace.schoolWeek(_date) == null ? 'Week of' : 'Week ${workspace.schoolWeek(_date)} ·'} ${weekStart(_date).month}/${weekStart(_date).day}/${weekStart(_date).year}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             ),
                           ),
@@ -166,14 +178,18 @@ class _SchedulePageState extends State<SchedulePage> {
                             ),
                             icon: const Icon(Icons.chevron_right),
                           ),
-                          TextButton(
-                            style: TextButton.styleFrom(
-                              visualDensity: VisualDensity.compact,
+                          Tooltip(
+                            message: 'Jump back to today',
+                            excludeFromSemantics: true,
+                            child: TextButton(
+                              style: TextButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              onPressed: () => setState(
+                                () => _date = schoolDate(DateTime.now()),
+                              ),
+                              child: const Text('Today'),
                             ),
-                            onPressed: () => setState(
-                              () => _date = schoolDate(DateTime.now()),
-                            ),
-                            child: const Text('Today'),
                           ),
                         ],
                       ),
@@ -187,25 +203,30 @@ class _SchedulePageState extends State<SchedulePage> {
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 3,
                                 ),
-                                child: ChoiceChip(
-                                  visualDensity: VisualDensity.compact,
-                                  label: Text(
-                                    const [
-                                      'Mon',
-                                      'Tue',
-                                      'Wed',
-                                      'Thu',
-                                      'Fri',
-                                      'Sat',
-                                      'Sun',
-                                    ][day - 1],
-                                  ),
-                                  selected: _date.weekday == day,
-                                  onSelected: (_) => setState(
-                                    () => _date = DateTime(
-                                      _date.year,
-                                      _date.month,
-                                      _date.day - _date.weekday + day,
+                                child: Tooltip(
+                                  message:
+                                      'View schedule for ${const ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][day - 1]}',
+                                  excludeFromSemantics: true,
+                                  child: ChoiceChip(
+                                    visualDensity: VisualDensity.compact,
+                                    label: Text(
+                                      const [
+                                        'Mon',
+                                        'Tue',
+                                        'Wed',
+                                        'Thu',
+                                        'Fri',
+                                        'Sat',
+                                        'Sun',
+                                      ][day - 1],
+                                    ),
+                                    selected: _date.weekday == day,
+                                    onSelected: (_) => setState(
+                                      () => _date = DateTime(
+                                        _date.year,
+                                        _date.month,
+                                        _date.day - _date.weekday + day,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -219,20 +240,31 @@ class _SchedulePageState extends State<SchedulePage> {
                         runSpacing: 4,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          FilterChip(
-                            visualDensity: VisualDensity.compact,
-                            label: const Text('Edit all periods'),
-                            selected: _allPeriods,
-                            onSelected: (value) =>
-                                setState(() => _allPeriods = value),
+                          Tooltip(
+                            message:
+                                'Show every repeating period, including other weekdays',
+                            excludeFromSemantics: true,
+                            child: FilterChip(
+                              visualDensity: VisualDensity.compact,
+                              label: const Text('Edit all periods'),
+                              selected: _allPeriods,
+                              onSelected: (value) =>
+                                  setState(() => _allPeriods = value),
+                            ),
                           ),
-                          FilterChip(
-                            key: const ValueKey('day-off'),
-                            visualDensity: VisualDensity.compact,
-                            label: Text('No school ${_date.month}/${_date.day}'),
-                            selected: workspace.daysOff.contains(_date),
-                            onSelected: (value) =>
-                                workspace.setDayOff(_date, value),
+                          Tooltip(
+                            message: 'Mark this date as a holiday or day off',
+                            excludeFromSemantics: true,
+                            child: FilterChip(
+                              key: const ValueKey('day-off'),
+                              visualDensity: VisualDensity.compact,
+                              label: Text(
+                                'No school ${_date.month}/${_date.day}',
+                              ),
+                              selected: workspace.daysOff.contains(_date),
+                              onSelected: (value) =>
+                                  workspace.setDayOff(_date, value),
+                            ),
                           ),
                           if (workspace.schoolYearStart == null)
                             Text(
@@ -252,10 +284,19 @@ class _SchedulePageState extends State<SchedulePage> {
                 const Divider(height: 1),
                 Expanded(
                   child: periods.isEmpty
-                      ? const Center(
-                          child: Text(
-                            'No periods on this day.\nUse Edit all periods to manage the weekly schedule.',
-                            textAlign: TextAlign.center,
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            child: Text(
+                              'No periods on this day.\nUse Edit all periods to manage the weekly schedule.',
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
                           ),
                         )
                       : ListView.builder(
@@ -325,31 +366,48 @@ class _SchedulePageState extends State<SchedulePage> {
                                       child: Wrap(
                                         spacing: 8,
                                         children: [
-                                          TextButton.icon(
-                                            onPressed: () => manageRoster(
-                                              context,
-                                              workspace,
-                                              section,
-                                            ),
-                                            icon: const Icon(
-                                              Icons.playlist_add_check,
-                                            ),
-                                            label: const Text(
-                                              'Manage students',
+                                          Tooltip(
+                                            message:
+                                                'Check or uncheck students in this class',
+                                            excludeFromSemantics: true,
+                                            child: TextButton.icon(
+                                              onPressed: () => manageRoster(
+                                                context,
+                                                workspace,
+                                                section,
+                                              ),
+                                              icon: const Icon(
+                                                Icons.playlist_add_check,
+                                              ),
+                                              label: const Text(
+                                                'Manage students',
+                                              ),
                                             ),
                                           ),
                                           if (onOpenRoster != null)
-                                            TextButton(
-                                              onPressed: () =>
-                                                  onOpenRoster!(section.id),
-                                              child: const Text('View roster'),
+                                            Tooltip(
+                                              message:
+                                                  'Open this class in the Roster tab',
+                                              excludeFromSemantics: true,
+                                              child: TextButton(
+                                                onPressed: () =>
+                                                    onOpenRoster!(section.id),
+                                                child: const Text(
+                                                  'View roster',
+                                                ),
+                                              ),
                                             ),
                                           if (onOpenSeating != null)
-                                            TextButton(
-                                              onPressed: () =>
-                                                  onOpenSeating!(section.id),
-                                              child: const Text(
-                                                'Seating chart',
+                                            Tooltip(
+                                              message:
+                                                  'Open this class’s seating chart',
+                                              excludeFromSemantics: true,
+                                              child: TextButton(
+                                                onPressed: () =>
+                                                    onOpenSeating!(section.id),
+                                                child: const Text(
+                                                  'Seating chart',
+                                                ),
                                               ),
                                             ),
                                         ],

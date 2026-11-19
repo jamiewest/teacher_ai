@@ -147,14 +147,19 @@ class _RosterPageState extends State<RosterPage>
                   children: [
                     Text('${students.length} students'),
                     if (section != null)
-                      TextButton.icon(
-                        style: TextButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
+                      Tooltip(
+                        message:
+                            'Check or uncheck students enrolled in this class',
+                        excludeFromSemantics: true,
+                        child: TextButton.icon(
+                          style: TextButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          onPressed: () =>
+                              manageRoster(context, workspace, section),
+                          icon: const Icon(Icons.playlist_add_check, size: 18),
+                          label: const Text('Manage students'),
                         ),
-                        onPressed: () =>
-                            manageRoster(context, workspace, section),
-                        icon: const Icon(Icons.playlist_add_check, size: 18),
-                        label: const Text('Manage students'),
                       ),
                   ],
                 ),
@@ -178,10 +183,14 @@ class _RosterPageState extends State<RosterPage>
               ),
             ],
           ),
-          floatingActionButton: FloatingActionButton.extended(
-            onPressed: () => _editStudent(null, section),
-            icon: const Icon(Icons.person_add_alt),
-            label: const Text('Add student'),
+          floatingActionButton: Tooltip(
+            message: 'Create a student and assign them to classes',
+            excludeFromSemantics: true,
+            child: FloatingActionButton.extended(
+              onPressed: () => _editStudent(null, section),
+              icon: const Icon(Icons.person_add_alt),
+              label: const Text('Add student'),
+            ),
           ),
         );
       }
@@ -223,9 +232,16 @@ class _RosterPageState extends State<RosterPage>
 
   Widget _studentsList(List<Student> students, ClassSection? section) {
     if (students.isEmpty) {
-      return const Center(
-        child: Text(
-          'No students found. Add a student or choose another roster.',
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'No students here yet.\nAdd a student or choose another class above.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
         ),
       );
     }
@@ -280,7 +296,9 @@ class _RosterPageState extends State<RosterPage>
       children: [
         ListTile(
           title: Text('Tags', style: Theme.of(context).textTheme.titleSmall),
-          subtitle: const Text('Used when shuffling, and by AI later'),
+          subtitle: const Text(
+            'Apply tags to students to guide shuffles (like front-of-room).',
+          ),
           trailing: showInlineAdd
               ? IconButton.filledTonal(
                   tooltip: 'New tag',
@@ -292,7 +310,18 @@ class _RosterPageState extends State<RosterPage>
         const Divider(height: 1),
         Expanded(
           child: tags.isEmpty
-              ? const Center(child: Text('No tags yet.'))
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      'No tags yet.\nCreate tags for seating needs like front-of-room or partner notes.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                )
               : ListView.builder(
                   padding: const EdgeInsets.only(bottom: 96),
                   itemCount: tags.length,

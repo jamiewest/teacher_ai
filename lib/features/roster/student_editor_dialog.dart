@@ -106,9 +106,22 @@ class _StudentEditorDialogState extends State<StudentEditorDialog> {
               'Periods and classes',
               style: Theme.of(context).textTheme.titleSmall,
             ),
-            const Text('Select every class this student attends.'),
+            Text(
+              'Select every class this student attends.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
             if (widget.classLabels.isEmpty)
-              const Text('Add a class period in Schedule to start a roster.'),
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  'Add a class period in Schedule to start a roster.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
             for (final entry in widget.classLabels.entries)
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
@@ -127,27 +140,38 @@ class _StudentEditorDialogState extends State<StudentEditorDialog> {
             Text('Tags', style: Theme.of(context).textTheme.labelMedium),
             const SizedBox(height: 8),
             if (widget.tags.isEmpty)
-              const Text('No tags defined yet.')
+              Text(
+                'No tags defined yet.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              )
             else
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
                 children: [
                   for (final tag in widget.tags)
-                    FilterChip(
-                      avatar: CircleAvatar(
-                        backgroundColor: Color(tag.colorValue),
-                        radius: 7,
+                    Tooltip(
+                      message: tag.hint == SeatingHint.none
+                          ? tag.category.label
+                          : '${tag.category.label} · ${tag.hint.label}',
+                      excludeFromSemantics: true,
+                      child: FilterChip(
+                        avatar: CircleAvatar(
+                          backgroundColor: Color(tag.colorValue),
+                          radius: 7,
+                        ),
+                        label: Text(tag.label),
+                        selected: _tagIds.contains(tag.id),
+                        onSelected: (on) => setState(() {
+                          if (on) {
+                            _tagIds.add(tag.id);
+                          } else {
+                            _tagIds.remove(tag.id);
+                          }
+                        }),
                       ),
-                      label: Text(tag.label),
-                      selected: _tagIds.contains(tag.id),
-                      onSelected: (on) => setState(() {
-                        if (on) {
-                          _tagIds.add(tag.id);
-                        } else {
-                          _tagIds.remove(tag.id);
-                        }
-                      }),
                     ),
                 ],
               ),
@@ -155,7 +179,11 @@ class _StudentEditorDialogState extends State<StudentEditorDialog> {
             TextField(
               controller: _notes,
               maxLines: 2,
-              decoration: const InputDecoration(labelText: 'Notes'),
+              decoration: const InputDecoration(
+                labelText: 'Notes',
+                hintText: 'Optional seating or learning notes',
+                helperText: 'Private to your classroom workspace',
+              ),
             ),
           ],
         ),
@@ -196,11 +224,15 @@ class _StudentEditorDialogState extends State<StudentEditorDialog> {
       content: SizedBox(width: 440, child: formBody),
       actions: [
         if (existing != null)
-          TextButton(
-            onPressed: () => Navigator.of(
-              context,
-            ).pop(StudentEditorResult.deleted(existing)),
-            child: const Text('Delete student'),
+          Tooltip(
+            message: 'Permanently delete this student from all classes',
+            excludeFromSemantics: true,
+            child: TextButton(
+              onPressed: () => Navigator.of(
+                context,
+              ).pop(StudentEditorResult.deleted(existing)),
+              child: const Text('Delete student'),
+            ),
           ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(),

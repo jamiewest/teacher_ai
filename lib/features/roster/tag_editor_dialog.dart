@@ -55,7 +55,10 @@ class _TagEditorDialogState extends State<TagEditorDialog> {
               const SizedBox(height: 12),
               DropdownButtonFormField<TagCategory>(
                 initialValue: _category,
-                decoration: const InputDecoration(labelText: 'Category'),
+                decoration: const InputDecoration(
+                  labelText: 'Category',
+                  helperText: 'Groups related tags together in the roster',
+                ),
                 items: [
                   for (final c in TagCategory.values)
                     DropdownMenuItem(value: c, child: Text(c.label)),
@@ -67,7 +70,8 @@ class _TagEditorDialogState extends State<TagEditorDialog> {
                 initialValue: _hint,
                 decoration: const InputDecoration(
                   labelText: 'Seating hint',
-                  helperText: 'Used when shuffling, and later by AI',
+                  helperText:
+                      'Automatically honored when shuffling seating charts',
                 ),
                 items: [
                   for (final h in SeatingHint.values)

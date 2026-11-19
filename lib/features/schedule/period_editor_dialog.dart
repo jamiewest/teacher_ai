@@ -113,7 +113,10 @@ class _PeriodEditorDialogState extends State<PeriodEditorDialog> {
               ),
             TextFormField(
               controller: _name,
-              decoration: const InputDecoration(labelText: 'Period name'),
+              decoration: const InputDecoration(
+                labelText: 'Period name',
+                hintText: 'e.g. Period 1 or Lunch',
+              ),
               validator: (value) => value == null || value.trim().isEmpty
                   ? 'Enter a period name'
                   : null,
@@ -121,7 +124,10 @@ class _PeriodEditorDialogState extends State<PeriodEditorDialog> {
             const SizedBox(height: 12),
             DropdownButtonFormField<PeriodKind>(
               initialValue: _kind,
-              decoration: const InputDecoration(labelText: 'Period type'),
+              decoration: const InputDecoration(
+                labelText: 'Period type',
+                helperText: 'Breaks don’t link to a class roster',
+              ),
               items: [
                 for (final kind in PeriodKind.values)
                   DropdownMenuItem(value: kind, child: Text(kind.label)),
@@ -140,12 +146,16 @@ class _PeriodEditorDialogState extends State<PeriodEditorDialog> {
               spacing: 4,
               children: [
                 for (var day = 1; day <= 7; day++)
-                  FilterChip(
-                    label: Text(_days[day - 1].substring(0, 3)),
-                    selected: _weekdays.contains(day),
-                    onSelected: (selected) => setState(() {
-                      selected ? _weekdays.add(day) : _weekdays.remove(day);
-                    }),
+                  Tooltip(
+                    message: 'Toggle ${_days[day - 1]}',
+                    excludeFromSemantics: true,
+                    child: FilterChip(
+                      label: Text(_days[day - 1].substring(0, 3)),
+                      selected: _weekdays.contains(day),
+                      onSelected: (selected) => setState(() {
+                        selected ? _weekdays.add(day) : _weekdays.remove(day);
+                      }),
+                    ),
                   ),
               ],
             ),
@@ -154,8 +164,11 @@ class _PeriodEditorDialogState extends State<PeriodEditorDialog> {
               'Different times by day',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
-            const Text(
+            Text(
               'For early release or other recurring changes. Other days use the times above.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
             for (final day in _weekdays.toList()..sort())
               ListTile(
@@ -218,13 +231,19 @@ class _PeriodEditorDialogState extends State<PeriodEditorDialog> {
                       : null,
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'A new roster starts empty, with its own seating layout. Add students after saving.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ] else
                 Text(
                   'Uses the students and seating layouts of ${widget.workspace.classSection(_classId)!.name}. '
                   'Periods linked to this class share a roster. Choose a new roster for a separate group of students.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
             ],
           ],

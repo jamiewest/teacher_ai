@@ -43,6 +43,9 @@ class _RosterMembershipDialogState extends State<RosterMembershipDialog> {
             const SizedBox(height: 8),
             Text(
               '${_selected.length} selected · Students can attend several classes.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
