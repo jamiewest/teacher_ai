@@ -17,7 +17,7 @@ Every AI commit must update this file **in the same commit**:
 - **Architecture**: `teacher_ai` runs in two build modes from the same Flutter codebase:
   - **Local / demo mode** (`TEACHER_CLOUD=false`, default): Single-blob `WorkspaceDocument` (`schemaVersion = 1`) in `SharedPreferencesStore` / `localStorage`, seeded with a sample Algebra I class on first run, deployed to GitHub Pages via `.github/workflows/pages.yml`.
   - **Hosted / cloud mode** (`TEACHER_CLOUD=true`): Account-scoped Drift/SQLite `Replica` (`schemaVersion = 2`) and `CloudRepository` syncing atomic record batches against an ASP.NET Core 10 Minimal API (`backend/TeacherAI.Api`) backed by PostgreSQL 17, Auth0 OIDC (cookie + CSRF on same-origin web; PKCE + Bearer JWT on native iOS/Android/macOS), .NET Aspire 13.6 (`backend/TeacherAI.AppHost`), and Raspberry Pi ARM64 Docker Compose deployment (`backend/deploy/`).
-- **Working tree status (as of 2026-11-19)**: `AGENTS.md`, `HANDOFF.md`, and the seating/roster/schedule tooltip & helper-text improvements (plus `test/tooltips_and_helper_text_test.dart`) are committed cleanly ahead of `7d0016a`. The full hosted/sync architecture migration (`backend/`, `lib/data/sync/`, `lib/app/cloud_classroom.dart`, `lib/app/classroom_sign_in.dart`, `lib/data/classroom_backup.dart`, `lib/features/settings/classroom_files.dart`, `android/`, `ios/`, `integration_test/`, `tool/`, `.github/workflows/classroom.yml`, and modified Flutter/macOS/doc files—including the navigation, settings, and cloud tooltip/helper-text additions in `lib/app/home_shell.dart`, `lib/features/settings/settings_sheet.dart`, `lib/features/settings/classroom_files.dart`, and `lib/app/cloud_classroom.dart`) remains **uncommitted in the working tree**.
+- **Working tree status (as of 2026-11-19)**: `AGENTS.md`, `HANDOFF.md`, the tooltip/helper-text pass (with `test/tooltips_and_helper_text_test.dart`), and the Material 3 theme / Schedule period cards / Seating header pill refinements are committed cleanly ahead of `7d0016a`. The full hosted/sync architecture migration (`backend/`, `lib/data/sync/`, `lib/app/cloud_classroom.dart`, `lib/app/classroom_sign_in.dart`, `lib/data/classroom_backup.dart`, `lib/features/settings/classroom_files.dart`, `android/`, `ios/`, `integration_test/`, `tool/`, `.github/workflows/classroom.yml`, and modified Flutter/macOS/doc files—including the navigation, settings, and cloud tooltip/helper-text additions in `lib/app/home_shell.dart`, `lib/features/settings/settings_sheet.dart`, `lib/features/settings/classroom_files.dart`, and `lib/app/cloud_classroom.dart`) remains **uncommitted in the working tree**.
 
 ## Open Review Findings & Follow-Ups
 
@@ -43,6 +43,13 @@ From the 2026-11-19 architecture review (ordered by severity):
    - `README.md` still contains stale local-only statements in the Architecture table (line 79) and final paragraph (lines 216–220) that conflict with the hosted sync description at the top.
 
 ## Change Log
+
+### 2026-11-19 — Refine Material 3 theme, schedule period cards, and seating header pills
+
+- **What**: Refined Material 3 component styling in [`lib/app/theme.dart`](lib/app/theme.dart) (`cardTheme`, `outlinedButtonTheme`, `appBarTheme`, `navigationRailTheme`, `navigationBarTheme`, `dialogTheme`, `bottomSheetTheme` while keeping native `textTheme` font metrics), redesigned [`lib/features/schedule/schedule_page.dart`](lib/features/schedule/schedule_page.dart) with a tonal calendar control deck, class/break summary pill, compact break strips, layered class period cards (time pill, tabular duration, `Now` badge, metadata pills, and tonal `Seating chart` action bar), and updated the single-row header pills in [`lib/features/seating/seating_page.dart`](lib/features/seating/seating_page.dart) (`ActionChip` tonal fill/padding, flexible dropdown icons, and hiding segmented-button icons below `860px`).
+- **Why**: Give the app stronger Material 3 surface hierarchy and clear schedule scanability for teachers while fixing a medium-width horizontal overflow inside the two seating header `ActionChip`s.
+- **Verification**: `analyze_files` (Dart MCP) reported `No errors`; `flutter test` passed all `124` tests across every responsive viewport.
+- **Follow-ups**: Continue with live-classroom teacher UX refinements, the AI seating assistant sheet, roster card polish, and dedicated widget tests.
 
 ### 2026-11-19 — Add roster and schedule tooltips, helper text, and tooltip widget tests
 

@@ -681,6 +681,12 @@ class _SeatingPageState extends State<SeatingPage> {
                             child: ActionChip(
                               key: const ValueKey('class-selector-pill'),
                               visualDensity: VisualDensity.compact,
+                              labelPadding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                              ),
+                              backgroundColor: scheme.secondaryContainer
+                                  .withValues(alpha: 0.55),
+                              side: BorderSide(color: scheme.outlineVariant),
                               avatar: Icon(
                                 _scheduleIcon,
                                 size: 16,
@@ -697,7 +703,12 @@ class _SeatingPageState extends State<SeatingPage> {
                                     ),
                                   ),
                                   if (widget.onPickClass != null)
-                                    const Icon(Icons.arrow_drop_down, size: 18),
+                                    const Flexible(
+                                      child: Icon(
+                                        Icons.arrow_drop_down,
+                                        size: 16,
+                                      ),
+                                    ),
                                 ],
                               ),
                               onPressed: widget.onPickClass,
@@ -712,6 +723,11 @@ class _SeatingPageState extends State<SeatingPage> {
                             excludeFromSemantics: true,
                             child: ActionChip(
                               visualDensity: VisualDensity.compact,
+                              labelPadding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                              ),
+                              backgroundColor: scheme.surfaceContainerLow,
+                              side: BorderSide(color: scheme.outlineVariant),
                               avatar: const Icon(
                                 Icons.layers_outlined,
                                 size: 16,
@@ -726,7 +742,12 @@ class _SeatingPageState extends State<SeatingPage> {
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                  const Icon(Icons.arrow_drop_down, size: 18),
+                                  const Flexible(
+                                    child: Icon(
+                                      Icons.arrow_drop_down,
+                                      size: 16,
+                                    ),
+                                  ),
                                 ],
                               ),
                               onPressed: () =>
@@ -741,7 +762,7 @@ class _SeatingPageState extends State<SeatingPage> {
                   _modeSegmentedButton(
                     editor,
                     compact: bounds.maxWidth < 960,
-                    hideIcons: false,
+                    hideIcons: bounds.maxWidth < 860,
                   ),
                   const SizedBox(width: 12),
                   if (_live)
