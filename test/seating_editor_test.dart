@@ -58,6 +58,32 @@ SeatingEditorController editorFor(
 );
 
 void main() {
+  test(
+    'open editor follows synced charts and room changes while preserving a seating draft',
+    () async {
+      final (workspace, section, layout) = await buildFixture();
+      final editor = editorFor(workspace, section, layout);
+      final ids = section.studentIds;
+      SeatingAssignment chart(String seat, String student) =>
+          SeatingAssignment.create(
+            layoutId: layout.id,
+            classSectionId: section.id,
+            seatToStudent: {seat: student},
+          );
+
+      workspace.saveAssignment(chart('seat0', ids.first));
+      expect(editor.seating, {'seat0': ids.first});
+      editor.placeStudent('seat1', ids[1]);
+      workspace.saveAssignment(chart('seat2', ids[2]));
+      workspace.upsertLayout(layout.copyWith(name: 'New room name'));
+      expect(editor.layout.name, 'New room name');
+      expect(editor.seating, {'seat0': ids.first, 'seat1': ids[1]});
+      expect(editor.canUndo, isFalse);
+      editor.dispose();
+      workspace.dispose();
+    },
+  );
+
   group('undo and redo', () {
     test('a move is undoable back to the original position', () async {
       final (workspace, section, layout) = await buildFixture();
@@ -116,26 +142,31 @@ void main() {
   });
 
   group('dragging', () {
-    test('snapping is measured from the gesture start, not the last frame',
-        () async {
-      final (workspace, section, layout) = await buildFixture();
-      final editor = editorFor(workspace, section, layout)
-        ..setSnapToGrid(true)
-        ..selectOnly('seat0')
-        ..beginInteraction();
+    test(
+      'snapping is measured from the gesture start, not the last frame',
+      () async {
+        final (workspace, section, layout) = await buildFixture();
+        final editor = editorFor(workspace, section, layout)
+          ..setSnapToGrid(true)
+          ..selectOnly('seat0')
+          ..beginInteraction();
 
-      // Many small moves that each snap; the result must still land exactly on
-      // the grid nearest the final pointer position.
-      for (var i = 1; i <= 20; i++) {
-        editor.dragSelectionTo('seat0', Offset(100.0 + i * 3.7, 300));
-      }
-      editor.endInteraction();
+        // Many small moves that each snap; the result must still land exactly on
+        // the grid nearest the final pointer position.
+        for (var i = 1; i <= 20; i++) {
+          editor.dragSelectionTo('seat0', Offset(100.0 + i * 3.7, 300));
+        }
+        editor.endInteraction();
 
-      final desk = editor.layout.deskById('seat0')!;
-      final grid = editor.layout.gridSize;
-      expect(desk.x % grid, closeTo(0, 0.001));
-      expect(desk.x, closeTo(LayoutOps.snapPoint(const Offset(174, 300), 15).dx, 0.001));
-    });
+        final desk = editor.layout.deskById('seat0')!;
+        final grid = editor.layout.gridSize;
+        expect(desk.x % grid, closeTo(0, 0.001));
+        expect(
+          desk.x,
+          closeTo(LayoutOps.snapPoint(const Offset(174, 300), 15).dx, 0.001),
+        );
+      },
+    );
 
     test('a multi-desk drag keeps the spacing between desks', () async {
       final (workspace, section, layout) = await buildFixture();

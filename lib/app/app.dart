@@ -2,6 +2,9 @@ import 'package:extensions_flutter/extensions_flutter.dart';
 import 'package:flutter/material.dart';
 
 import '../data/teacher_workspace.dart';
+import '../data/sync/cloud_api.dart';
+import '../data/key_value_store.dart';
+import 'cloud_classroom.dart';
 import 'app_settings.dart';
 import 'home_shell.dart';
 import 'theme.dart';
@@ -24,7 +27,7 @@ class _TeacherAppState extends State<TeacherApp> {
       widget.services.getService<AppSettingsController>() ??
       AppSettingsController.memory();
   late final Future<void> _ready = Future.wait([
-    _workspace.load(),
+    if (!CloudApi.enabled) _workspace.load(),
     _settings.load(),
   ]).then((_) {});
   FlutterApplicationLifetime? _lifetime;
@@ -70,6 +73,14 @@ class _TeacherAppState extends State<TeacherApp> {
               }
               if (snapshot.hasError) {
                 return _StartupError(error: snapshot.error!);
+              }
+              if (CloudApi.enabled) {
+                return CloudClassroom(
+                  settings: _settings,
+                  loggerFactory: widget.services
+                      .getRequiredService<LoggerFactory>(),
+                  store: widget.services.getRequiredService<KeyValueStore>(),
+                );
               }
               return HomeShell(workspace: _workspace, settings: _settings);
             },

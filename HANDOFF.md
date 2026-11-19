@@ -14,20 +14,18 @@ Every AI commit must update this file **in the same commit**:
 
 ## Current State
 
-- The root `Dockerfile` builds the hosted Flutter client and .NET API into one image. Railway can build it with the repository root as its source once the hosted app sources are available on the deployment branch.
+- The root `Dockerfile` builds the hosted Flutter client and .NET API into one image. The API, service defaults, Flutter build script, and hosted web dependencies are tracked for repository-root builds.
 
 - **Architecture**: `teacher_ai` runs in two build modes from the same Flutter codebase:
   - **Local / demo mode** (`TEACHER_CLOUD=false`, default): Single-blob `WorkspaceDocument` (`schemaVersion = 1`) in `SharedPreferencesStore` / `localStorage`, seeded with a sample Algebra I class on first run, deployed to GitHub Pages via `.github/workflows/pages.yml`.
   - **Hosted / cloud mode** (`TEACHER_CLOUD=true`): Account-scoped Drift/SQLite `Replica` (`schemaVersion = 2`) and `CloudRepository` syncing atomic record batches against an ASP.NET Core 10 Minimal API (`backend/TeacherAI.Api`) backed by PostgreSQL 17, Auth0 OIDC (cookie + CSRF on same-origin web; PKCE + Bearer JWT on native iOS/Android/macOS), .NET Aspire 13.6 (`backend/TeacherAI.AppHost`), and Raspberry Pi ARM64 Docker Compose deployment (`backend/deploy/`).
-- **Working tree status (as of 2026-11-19)**: `AGENTS.md`, `HANDOFF.md`, the tooltip/helper-text pass (with `test/tooltips_and_helper_text_test.dart`), the Material 3 theme / Schedule period cards / Seating header pill refinements, and the live classroom equity random picker, AI seating assistant sheet, and roster Material 3 polish are committed cleanly ahead of `7d0016a`. The full hosted/sync architecture migration (`backend/`, `lib/data/sync/`, `lib/app/cloud_classroom.dart`, `lib/app/classroom_sign_in.dart`, `lib/data/classroom_backup.dart`, `lib/features/settings/classroom_files.dart`, `android/`, `ios/`, `integration_test/`, `tool/`, `.github/workflows/classroom.yml`, and modified Flutter/macOS/doc files—including the navigation badge, settings Teacher AI Pro card, and cloud tooltip/helper-text additions in `lib/app/home_shell.dart`, `lib/features/settings/settings_sheet.dart`, `lib/features/settings/classroom_files.dart`, and `lib/app/cloud_classroom.dart`) remains **uncommitted in the working tree**.
+- **Working tree status (2026-11-19)**: The hosted web build inputs, sync implementation and related Flutter tests are tracked. The remaining local changes include the Aspire AppHost, backend integration harness, Pi deployment scripts, native platform updates and CI configuration.
 
 ## Open Review Findings & Follow-Ups
 
 From the 2026-11-19 architecture review (ordered by severity):
 
-1. **High — Untracked `backend/TeacherAI.Api/bin\Debug/` artifact directory**:
-   - A directory whose literal name contains a backslash (`backend/TeacherAI.Api/bin\Debug/`) holds ~45 `.dll`/`.exe` build-host binaries and is **not** matched by `backend/**/bin/` in `.gitignore`.
-   - Remove this directory and add a matching ignore rule before staging/committing `backend/`.
+1. The local directory whose name contains a literal backslash, `backend/TeacherAI.Api/bin\Debug/`, is now ignored and excluded from deployment source.
 2. **High — Lifecycle flush gap in hosted mode (`lib/app/app.dart`, `lib/app/cloud_classroom.dart`)**:
    - `TeacherApp._flush()` flushes the DI-registered `TeacherWorkspace`, which is unused when `CloudApi.enabled` is true.
    - `CloudClassroom.didChangeAppLifecycleState` only triggers `_repo?.sync()` on `AppLifecycleState.resumed` and does not flush/sync when paused or detached. Wire pause/detach lifecycle flushing to the active cloud workspace/repository.
@@ -45,6 +43,12 @@ From the 2026-11-19 architecture review (ordered by severity):
    - `README.md` still contains stale local-only statements in the Architecture table (line 79) and final paragraph (lines 216–220) that conflict with the hosted sync description at the top.
 
 ## Change Log
+
+### 2026-11-19 — Include the source required by the Railway Dockerfile
+
+- GitHub reported the Railway deployment of `5dc7a39` failed. Reproduced Docker’s missing-source error using a Git archive of that revision.
+- Added the API and service-defaults projects, schema migrations, hosted Flutter build script, cloud classroom and storage code, locked dependencies, browser SQLite assets and related Flutter tests. These are the source inputs needed to ship the same hosted classroom as the local preview.
+- Verified Docker’s source-copy steps against an archive of the prospective commit. From that archive, restored the locked Flutter packages, built the hosted web release, published the .NET API with its web assets, and passed all 126 Flutter tests. Started the published application in a Linux AMD64 runtime container after migrating disposable PostgreSQL, verified readiness (204), static assets (200) and anonymous workspace access (401). A hosted Railway build requires the corrected revision on its deployment branch.
 
 ### 2026-11-19 — Add live random student picker, AI seating assistant sheet, and roster Material 3 polish
 

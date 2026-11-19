@@ -33,6 +33,7 @@ class SeatingEditorController extends ChangeNotifier {
          seatToStudent: seating ?? const <String, String>{},
          pinnedSeats: pinnedSeats,
        ) {
+    _lastSaved = _workspace.latestAssignment(layout.id);
     _rosterIds = roster.map((student) => student.id).toSet();
     _snapshot = _forCurrentRoster(_snapshot);
     _workspace.addListener(_onWorkspaceChanged);
@@ -45,6 +46,7 @@ class SeatingEditorController extends ChangeNotifier {
   final TeacherWorkspace _workspace;
   final String _classSectionId;
   late Set<String> _rosterIds;
+  SeatingAssignment? _lastSaved;
 
   @override
   void dispose() {
@@ -53,8 +55,12 @@ class SeatingEditorController extends ChangeNotifier {
   }
 
   void _onWorkspaceChanged() {
+    final changed = _refreshSavedRoom();
     final next = roster.map((student) => student.id).toSet();
-    if (setEquals(next, _rosterIds)) return;
+    if (setEquals(next, _rosterIds)) {
+      if (changed) notifyListeners();
+      return;
+    }
     _rosterIds = next;
     _snapshot = _forCurrentRoster(_snapshot);
     // Roster changes are not seating edits and cannot be reversed with Undo.
@@ -69,6 +75,42 @@ class SeatingEditorController extends ChangeNotifier {
     }
     if (!_rosterIds.contains(_pendingStudentId)) _pendingStudentId = null;
     notifyListeners();
+  }
+
+  // A cached editor may stay open while another device saves a room or chart.
+  // Compare with the previous saved chart to distinguish a teacher's draft.
+  bool _refreshSavedRoom() {
+    final incoming = _workspace.layout(layout.id);
+    if (incoming == null) return false;
+    final latest = _workspace.latestAssignment(layout.id);
+    final followChart =
+        latest?.id != _lastSaved?.id &&
+        mapEquals(
+          seating,
+          _lastSaved?.seatToStudent ?? const <String, String>{},
+        ) &&
+        setEquals(pinnedSeats, _lastSaved?.lockedDeskIds ?? const <String>{});
+    _lastSaved = latest;
+    final roomChanged =
+        !identical(incoming, _syncedLayout) &&
+        !const DeepCollectionEquality().equals(
+          incoming.toJson(),
+          _syncedLayout.toJson(),
+        );
+    if (!roomChanged && !followChart) return false;
+    _snapshot = _snapshot
+        .copyWith(
+          layout: roomChanged ? incoming : layout,
+          seatToStudent: followChart ? latest?.seatToStudent ?? {} : seating,
+          pinnedSeats: followChart ? latest?.lockedDeskIds ?? {} : pinnedSeats,
+        )
+        .pruned();
+    if (roomChanged) _syncedLayout = incoming;
+    _interactionBaseline = null;
+    _undo.clear();
+    _redo.clear();
+    _pruneSelection();
+    return true;
   }
 
   EditorSnapshot _forCurrentRoster(EditorSnapshot snapshot) {
@@ -974,6 +1016,7 @@ class SeatingEditorController extends ChangeNotifier {
           .toSet(),
     );
     _syncedLayout = copy;
+    _lastSaved = null;
     _undo.clear();
     _redo.clear();
     _dirty = false;

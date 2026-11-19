@@ -32,6 +32,8 @@ class TeacherWorkspace extends ChangeNotifier {
 
   bool get isLoaded => _loaded;
 
+  WorkspaceDocument get snapshot => _document;
+
   List<Subject> get subjects => _document.subjects;
   List<Student> get students => _document.students;
   List<StudentTag> get tags => _document.tags;
@@ -347,6 +349,12 @@ class TeacherWorkspace extends ChangeNotifier {
       await _repository.save(_document);
     } else {
       _document = stored;
+      if (_repository case final SyncingTeacherRepository repository) {
+        repository.onRemote = (document) {
+          _document = document;
+          notifyListeners();
+        };
+      }
     }
     _loaded = true;
     notifyListeners();
@@ -495,6 +503,9 @@ class TeacherWorkspace extends ChangeNotifier {
 
   /// Forces a pending debounced write to land now.
   Future<void> flush() async {
+    if (_repository case final SyncingTeacherRepository repository) {
+      await repository.flush();
+    }
     if (_saveTimer?.isActive ?? false) {
       _saveTimer!.cancel();
       await _repository.save(_document);
@@ -504,7 +515,15 @@ class TeacherWorkspace extends ChangeNotifier {
   void _update(WorkspaceDocument document) {
     _document = document;
     notifyListeners();
-    _scheduleSave();
+    if (_repository is SyncingTeacherRepository) {
+      unawaited(
+        _repository.save(document).catchError((Object _) {
+          _logger.logError('Local classroom write failed.');
+        }),
+      );
+    } else {
+      _scheduleSave();
+    }
   }
 
   void _scheduleSave() {

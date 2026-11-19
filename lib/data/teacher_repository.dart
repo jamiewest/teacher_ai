@@ -12,6 +12,12 @@ abstract interface class TeacherRepository {
   Future<void> clear();
 }
 
+/// A repository that durably queues local edits and delivers remote edits.
+abstract interface class SyncingTeacherRepository implements TeacherRepository {
+  set onRemote(void Function(WorkspaceDocument)? listener);
+  Future<void> flush();
+}
+
 /// Stores the whole workspace as one JSON blob in a [KeyValueStore].
 class StoredTeacherRepository implements TeacherRepository {
   StoredTeacherRepository(this._store, LoggerFactory loggerFactory)

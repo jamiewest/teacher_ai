@@ -8,6 +8,7 @@ import '../features/roster/roster_page.dart';
 import '../features/schedule/schedule_page.dart';
 import '../features/seating/seating_page.dart';
 import '../features/settings/settings_sheet.dart';
+import '../features/settings/classroom_files.dart';
 import 'app_settings.dart';
 import 'responsive.dart';
 
@@ -20,11 +21,15 @@ class HomeShell extends StatefulWidget {
   const HomeShell({
     required this.workspace,
     this.settings,
+    this.classroomFiles,
+    this.accountSettings,
     this.now,
     super.key,
   });
 
   final TeacherWorkspace workspace;
+  final ClassroomFiles? classroomFiles;
+  final Widget? accountSettings;
   final AppSettingsController? settings;
   final DateTime Function()? now;
 
@@ -62,9 +67,24 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   static const _destinations = <_Destination>[
-    _Destination('Seating', Icons.grid_view_outlined, Icons.grid_view),
-    _Destination('Roster', Icons.people_outline, Icons.people),
-    _Destination('Schedule', Icons.schedule_outlined, Icons.schedule),
+    _Destination(
+      'Seating',
+      Icons.grid_view_outlined,
+      Icons.grid_view,
+      'Live participation, seating charts, and room layout',
+    ),
+    _Destination(
+      'Roster',
+      Icons.people_outline,
+      Icons.people,
+      'Students, class memberships, and seating tags',
+    ),
+    _Destination(
+      'Schedule',
+      Icons.schedule_outlined,
+      Icons.schedule,
+      'Weekly periods, school year, and days off',
+    ),
   ];
 
   /// The class being worked on, defaulting to the current period or first one.
@@ -144,6 +164,7 @@ class _HomeShellState extends State<HomeShell> {
                           icon: Icon(d.icon),
                           selectedIcon: Icon(d.selectedIcon),
                           label: d.label,
+                          tooltip: d.tooltip,
                         ),
                     ],
                   ),
@@ -161,10 +182,26 @@ class _HomeShellState extends State<HomeShell> {
                     onDestinationSelected: (i) => setState(() => _index = i),
                     labelType: NavigationRailLabelType.all,
                     leading: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      child: Icon(
-                        Icons.school_outlined,
-                        color: Theme.of(context).colorScheme.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      child: Tooltip(
+                        message: 'Teacher AI',
+                        excludeFromSemantics: true,
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            Icons.school_outlined,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onPrimaryContainer,
+                          ),
+                        ),
                       ),
                     ),
                     trailing: Expanded(
@@ -183,9 +220,21 @@ class _HomeShellState extends State<HomeShell> {
                     destinations: [
                       for (final d in _destinations)
                         NavigationRailDestination(
-                          icon: Icon(d.icon),
-                          selectedIcon: Icon(d.selectedIcon),
-                          label: Text(d.label),
+                          icon: Tooltip(
+                            message: d.tooltip,
+                            excludeFromSemantics: true,
+                            child: Icon(d.icon),
+                          ),
+                          selectedIcon: Tooltip(
+                            message: d.tooltip,
+                            excludeFromSemantics: true,
+                            child: Icon(d.selectedIcon),
+                          ),
+                          label: Tooltip(
+                            message: d.tooltip,
+                            excludeFromSemantics: true,
+                            child: Text(d.label),
+                          ),
                         ),
                     ],
                   ),
@@ -200,7 +249,12 @@ class _HomeShellState extends State<HomeShell> {
     );
   }
 
-  Future<void> _openSettings() => openSettings(context, _settings);
+  Future<void> _openSettings() => openSettings(
+    context,
+    _settings,
+    widget.classroomFiles ?? ClassroomFiles(workspace: widget.workspace),
+    accountSettings: widget.accountSettings,
+  );
 
   Future<void> _pickClass() async {
     final classes = widget.workspace.classes;
@@ -208,27 +262,57 @@ class _HomeShellState extends State<HomeShell> {
     final picked = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.schedule),
-              title: const Text('Follow current period'),
-              subtitle: const Text('Use the weekday schedule and local time'),
-              selected: _classSectionId == null,
-              onTap: () => Navigator.of(context).pop('__auto__'),
-            ),
-            for (final c in classes)
-              ListTile(
-                title: Text(widget.workspace.classLabel(c)),
-                subtitle: Text('${c.size} students'),
-                selected: c.id == _section?.id,
-                onTap: () => Navigator.of(context).pop(c.id),
+      builder: (context) {
+        final theme = Theme.of(context);
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Switch class', style: theme.textTheme.titleMedium),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Choose a class to view, or follow your schedule automatically.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-          ],
-        ),
-      ),
+              const Divider(height: 1),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.schedule),
+                      title: const Text('Follow current period'),
+                      subtitle: const Text(
+                        'Use the weekday schedule and local time',
+                      ),
+                      selected: _classSectionId == null,
+                      onTap: () => Navigator.of(context).pop('__auto__'),
+                    ),
+                    for (final c in classes)
+                      ListTile(
+                        title: Text(widget.workspace.classLabel(c)),
+                        subtitle: Text('${c.size} students'),
+                        selected: c.id == _section?.id,
+                        onTap: () => Navigator.of(context).pop(c.id),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
     if (picked != null && mounted) {
       setState(() {
@@ -252,8 +336,9 @@ class _HomeShellState extends State<HomeShell> {
 }
 
 class _Destination {
-  const _Destination(this.label, this.icon, this.selectedIcon);
+  const _Destination(this.label, this.icon, this.selectedIcon, this.tooltip);
   final String label;
   final IconData icon;
   final IconData selectedIcon;
+  final String tooltip;
 }

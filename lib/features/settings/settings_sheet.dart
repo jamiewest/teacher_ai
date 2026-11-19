@@ -9,7 +9,9 @@ import '../../app/theme.dart';
 Future<void> openSettings(
   BuildContext context,
   AppSettingsController settings,
-) async {
+  Widget classroomFiles, {
+  Widget? accountSettings,
+}) async {
   if (context.isCompact) {
     await showModalBottomSheet<void>(
       context: context,
@@ -18,7 +20,12 @@ Future<void> openSettings(
       showDragHandle: true,
       builder: (context) => FractionallySizedBox(
         heightFactor: 0.9,
-        child: _SettingsBody(settings: settings, isDialog: false),
+        child: _SettingsBody(
+          settings: settings,
+          classroomFiles: classroomFiles,
+          accountSettings: accountSettings,
+          isDialog: false,
+        ),
       ),
     );
     return;
@@ -30,17 +37,29 @@ Future<void> openSettings(
       clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 520, maxHeight: 700),
-        child: _SettingsBody(settings: settings, isDialog: true),
+        child: _SettingsBody(
+          settings: settings,
+          classroomFiles: classroomFiles,
+          accountSettings: accountSettings,
+          isDialog: true,
+        ),
       ),
     ),
   );
 }
 
 class _SettingsBody extends StatelessWidget {
-  const _SettingsBody({required this.settings, required this.isDialog});
+  const _SettingsBody({
+    required this.settings,
+    required this.isDialog,
+    required this.classroomFiles,
+    this.accountSettings,
+  });
 
   final AppSettingsController settings;
   final bool isDialog;
+  final Widget classroomFiles;
+  final Widget? accountSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -62,11 +81,15 @@ class _SettingsBody extends StatelessWidget {
                   Expanded(
                     child: Text('Settings', style: theme.textTheme.titleLarge),
                   ),
-                  TextButton(
-                    onPressed: current == const AppSettings()
-                        ? null
-                        : settings.resetDefaults,
-                    child: const Text('Reset'),
+                  Tooltip(
+                    message: 'Restore default appearance and canvas settings',
+                    excludeFromSemantics: true,
+                    child: TextButton(
+                      onPressed: current == const AppSettings()
+                          ? null
+                          : settings.resetDefaults,
+                      child: const Text('Reset'),
+                    ),
                   ),
                   if (isDialog)
                     IconButton(
@@ -82,6 +105,12 @@ class _SettingsBody extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
                 children: [
+                  if (accountSettings != null) ...[
+                    _SectionHeader('Account & sync', scheme),
+                    accountSettings!,
+                    const Divider(),
+                    const SizedBox(height: 20),
+                  ],
                   const _ClassroomPreviewCard(),
                   const SizedBox(height: 20),
                   _SectionHeader('Appearance', scheme),
@@ -91,16 +120,19 @@ class _SettingsBody extends StatelessWidget {
                     segments: const [
                       ButtonSegment(
                         value: ThemeMode.system,
+                        tooltip: 'Match your device appearance',
                         icon: Icon(Icons.brightness_auto_outlined),
                         label: Text('System'),
                       ),
                       ButtonSegment(
                         value: ThemeMode.light,
+                        tooltip: 'Always use light theme',
                         icon: Icon(Icons.light_mode_outlined),
                         label: Text('Light'),
                       ),
                       ButtonSegment(
                         value: ThemeMode.dark,
+                        tooltip: 'Always use dark theme',
                         icon: Icon(Icons.dark_mode_outlined),
                         label: Text('Dark'),
                       ),
@@ -132,10 +164,23 @@ class _SettingsBody extends StatelessWidget {
                     runSpacing: 8,
                     children: [
                       for (final style in PaletteStyle.values)
-                        ChoiceChip(
-                          label: Text(style.label),
-                          selected: current.paletteStyle == style,
-                          onSelected: (_) => settings.setPaletteStyle(style),
+                        Tooltip(
+                          message: switch (style) {
+                            PaletteStyle.balanced =>
+                              'Balanced Material colors for everyday use',
+                            PaletteStyle.vibrant =>
+                              'Higher-saturation accent colors',
+                            PaletteStyle.muted =>
+                              'Softer, low-contrast pastel accents',
+                            PaletteStyle.expressive =>
+                              'Bolder complementary accent contrast',
+                          },
+                          excludeFromSemantics: true,
+                          child: ChoiceChip(
+                            label: Text(style.label),
+                            selected: current.paletteStyle == style,
+                            onSelected: (_) => settings.setPaletteStyle(style),
+                          ),
                         ),
                     ],
                   ),
@@ -148,6 +193,9 @@ class _SettingsBody extends StatelessWidget {
                       for (final style in CanvasStyle.values)
                         ButtonSegment(
                           value: style,
+                          tooltip: style == CanvasStyle.standard
+                              ? 'Subtle borders for laptop and tablet screens'
+                              : 'High-contrast desk outlines for classroom projectors',
                           icon: Icon(
                             style == CanvasStyle.standard
                                 ? Icons.grid_view_outlined
@@ -159,6 +207,13 @@ class _SettingsBody extends StatelessWidget {
                     selected: {current.canvasStyle},
                     onSelectionChanged: (values) =>
                         settings.setCanvasStyle(values.first),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Projector mode darkens desk borders for classroom displays.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   SwitchListTile(
@@ -179,6 +234,62 @@ class _SettingsBody extends StatelessWidget {
                     value: current.showTagDotsByDefault,
                     onChanged: settings.setShowTagDotsByDefault,
                   ),
+                  const SizedBox(height: 16),
+                  _SectionHeader('Teacher AI Pro', scheme),
+                  const SizedBox(height: 8),
+                  Card(
+                    color: scheme.secondaryContainer.withValues(alpha: 0.45),
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: scheme.primaryContainer,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              Icons.auto_awesome,
+                              size: 20,
+                              color: scheme.onPrimaryContainer,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'AI Classroom & Seating Assistant',
+                                  style: theme.textTheme.titleSmall,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Optional subscription tier for smart seating charts, Kagan team balancing, and AI room layout suggestions.',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: scheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  _SectionHeader('Classroom files', scheme),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Back up your classroom as JSON or move data between devices.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                  classroomFiles,
                 ],
               ),
             ),
@@ -392,10 +503,7 @@ class _MiniDesk extends StatelessWidget {
             decoration: BoxDecoration(
               color: fill,
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(
-                color: palette.deskBorder,
-                width: borderWidth,
-              ),
+              border: Border.all(color: palette.deskBorder, width: borderWidth),
             ),
             child: Text(
               label,

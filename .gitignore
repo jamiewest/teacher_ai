@@ -46,3 +46,12 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+backend/**/bin/
+backend/**/bin\\Debug/
+backend/**/obj/
+backend/TeacherAI.Api/wwwroot/
+backend/aspire-output/
+backend/.aspire/
+backend/teacher-ai-release.tar
+backend/deploy/.env
