@@ -19,7 +19,7 @@ Every AI commit must update this file **in the same commit**:
 - **Architecture**: `teacher_ai` runs in two build modes from the same Flutter codebase:
   - **Local / demo mode** (`TEACHER_CLOUD=false`, default): Single-blob `WorkspaceDocument` (`schemaVersion = 1`) in `SharedPreferencesStore` / `localStorage`, seeded with a sample Algebra I class on first run, deployed to GitHub Pages via `.github/workflows/pages.yml`.
   - **Hosted / cloud mode** (`TEACHER_CLOUD=true`): Account-scoped Drift/SQLite `Replica` (`schemaVersion = 2`) and `CloudRepository` syncing atomic record batches against an ASP.NET Core 10 Minimal API (`backend/TeacherAI.Api`) backed by PostgreSQL 17, Auth0 OIDC (cookie + CSRF on same-origin web; PKCE + Bearer JWT on native iOS/Android/macOS), .NET Aspire 13.6 (`backend/TeacherAI.AppHost`), and Raspberry Pi ARM64 Docker Compose deployment (`backend/deploy/`).
-- The iOS runner uses the public Railway and Auth0 endpoints in `ios/railway.json`. Supply the native application client ID and API audience at build time as described in `ios/README.md`.
+- The iOS runner uses the Railway endpoint, Auth0 issuer and API audience in `ios/railway.json`. Supply the public native application client ID at build time as described in `ios/README.md`. The separate native client registration is pending.
 - **Working tree status (2026-11-19)**: The remaining local changes include the Aspire AppHost, backend integration harness, Pi deployment scripts, Android and macOS updates and CI configuration.
 
 ## Open Review Findings & Follow-Ups
@@ -44,6 +44,12 @@ From the 2026-11-19 architecture review (ordered by severity):
    - `README.md` still contains stale local-only statements in the Architecture table (line 79) and final paragraph (lines 216–220) that conflict with the hosted sync description at the top.
 
 ## Change Log
+
+### 2026-11-19 — Configure the iOS Railway API audience
+
+- Set the supplied API audience in the iOS preset and simplified the run command to require only the native client ID.
+- Built and launched the app on the iPhone 17 simulator with the supplied client ID and audience. Checked that the generated Flutter build settings contained both values.
+- Compared the supplied ID against Railway’s web login redirect and confirmed they match. A separate PKCE authorization request returned HTTP 403 from Auth0 because that client does not allow `app.teacherai.classroom:/callback`. Signed-in verification awaits a native client with that callback registered.
 
 ### 2026-11-19 — Run the iOS classroom against Railway
 
