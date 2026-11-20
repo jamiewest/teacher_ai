@@ -1,0 +1,5 @@
+{
+  "TEACHER_CLOUD": "true",
+  "API_ORIGIN": "https://teacherai-production-c48eb422.up.railway.app",
+  "OIDC_AUTHORITY": "https://dev-zz6uhcujrrw2ap6p.us.auth0.com/"
+}

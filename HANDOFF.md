@@ -19,7 +19,8 @@ Every AI commit must update this file **in the same commit**:
 - **Architecture**: `teacher_ai` runs in two build modes from the same Flutter codebase:
   - **Local / demo mode** (`TEACHER_CLOUD=false`, default): Single-blob `WorkspaceDocument` (`schemaVersion = 1`) in `SharedPreferencesStore` / `localStorage`, seeded with a sample Algebra I class on first run, deployed to GitHub Pages via `.github/workflows/pages.yml`.
   - **Hosted / cloud mode** (`TEACHER_CLOUD=true`): Account-scoped Drift/SQLite `Replica` (`schemaVersion = 2`) and `CloudRepository` syncing atomic record batches against an ASP.NET Core 10 Minimal API (`backend/TeacherAI.Api`) backed by PostgreSQL 17, Auth0 OIDC (cookie + CSRF on same-origin web; PKCE + Bearer JWT on native iOS/Android/macOS), .NET Aspire 13.6 (`backend/TeacherAI.AppHost`), and Raspberry Pi ARM64 Docker Compose deployment (`backend/deploy/`).
-- **Working tree status (2026-11-19)**: The hosted web build inputs, sync implementation and related Flutter tests are tracked. The remaining local changes include the Aspire AppHost, backend integration harness, Pi deployment scripts, native platform updates and CI configuration.
+- The iOS runner uses the public Railway and Auth0 endpoints in `ios/railway.json`. Supply the native application client ID and API audience at build time as described in `ios/README.md`.
+- **Working tree status (2026-11-19)**: The remaining local changes include the Aspire AppHost, backend integration harness, Pi deployment scripts, Android and macOS updates and CI configuration.
 
 ## Open Review Findings & Follow-Ups
 
@@ -43,6 +44,12 @@ From the 2026-11-19 architecture review (ordered by severity):
    - `README.md` still contains stale local-only statements in the Architecture table (line 79) and final paragraph (lines 216–220) that conflict with the hosted sync description at the top.
 
 ## Change Log
+
+### 2026-11-19 — Run the iOS classroom against Railway
+
+- Added the iOS Xcode workspace, plugin dependencies, callback scheme and Keychain entitlement. Added a Flutter build configuration for the deployed API and its Auth0 issuer, iOS run instructions, and the existing native offline-replica integration test.
+- On an iPhone 17 simulator running iOS 27, the offline test passed and the regular Flutter app launched to the cloud sign-in screen. A separate native URLSession probe using the same configuration received 204 from Railway readiness, 401 from its anonymous session endpoint, and 200 from the Auth0 discovery endpoint.
+- Signed-in sync still requires the tenant's public native client ID, matching API audience, and a teacher login. Physical-device signing was outside the simulator checks.
 
 ### 2026-11-19 — Finish the local sign-in design handoff
 
