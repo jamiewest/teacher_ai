@@ -14,6 +14,8 @@ Every AI commit must update this file **in the same commit**:
 
 ## Current State
 
+- The iOS runner has a Flutter bootstrap for Xcode Cloud. Activate merge-to-TestFlight delivery using the one-time Apple workflow setup in `ios/README.md`.
+
 - Railway serves the hosted Flutter client and .NET API together from the root `Dockerfile`. The deployment from `68370d9` passed its production readiness check on 2026-11-19. [Hosted classroom](https://teacherai-production-c48eb422.up.railway.app/)
 
 - **Architecture**: `teacher_ai` runs in two build modes from the same Flutter codebase:
@@ -23,6 +25,8 @@ Every AI commit must update this file **in the same commit**:
 - **Working tree status (2026-11-19)**: The remaining local changes include the Aspire AppHost, backend integration harness, Pi deployment scripts, Android and macOS updates and CI configuration.
 
 ## Open Review Findings & Follow-Ups
+
+- iOS beta delivery awaits the first signed Xcode Cloud build and installation through the selected internal TestFlight group.
 
 From the 2026-11-19 architecture review (ordered by severity):
 
@@ -44,6 +48,12 @@ From the 2026-11-19 architecture review (ordered by severity):
    - `README.md` still contains stale local-only statements in the Architecture table (line 79) and final paragraph (lines 216–220) that conflict with the hosted sync description at the top.
 
 ## Change Log
+
+### 2026-11-20 — Prepare Railway-connected iPhone builds for TestFlight
+
+- Added the executable `ios/ci_scripts/ci_post_clone.sh` to install the pinned Flutter SDK and prepare the locked dependencies, CocoaPods and Railway release settings using the Xcode Cloud build number. Documented the GitHub branch trigger, Apple signing setup and tester group in `ios/README.md`.
+- Verified shell syntax and executable permissions. From a clean export with Flutter 3.47.4, resolved the locked dependencies, ran the release configuration step, checked all five Railway defines, and archived the Runner workspace for generic iOS with signing disabled. Confirmed bundle ID `app.teacherai.teacherAi` and version 0.1.0 (17) in the archive.
+- The first Apple-hosted run will verify SDK provisioning, signing and TestFlight delivery. Teacher sign-in still depends on the native Auth0 grant above.
 
 ### 2026-11-19 — Connect the Railway iOS preset to the native Auth0 application
 
