@@ -14,7 +14,7 @@ Every AI commit must update this file **in the same commit**:
 
 ## Current State
 
-- The root `Dockerfile` builds the hosted Flutter client and .NET API into one image. The API, service defaults, Flutter build script, and hosted web dependencies are tracked for repository-root builds.
+- Railway serves the hosted Flutter client and .NET API together from the root `Dockerfile`. The deployment from `68370d9` passed its production readiness check on 2026-11-19. [Hosted classroom](https://teacherai-production-c48eb422.up.railway.app/)
 
 - **Architecture**: `teacher_ai` runs in two build modes from the same Flutter codebase:
   - **Local / demo mode** (`TEACHER_CLOUD=false`, default): Single-blob `WorkspaceDocument` (`schemaVersion = 1`) in `SharedPreferencesStore` / `localStorage`, seeded with a sample Algebra I class on first run, deployed to GitHub Pages via `.github/workflows/pages.yml`.
@@ -43,6 +43,11 @@ From the 2026-11-19 architecture review (ordered by severity):
    - `README.md` still contains stale local-only statements in the Architecture table (line 79) and final paragraph (lines 216–220) that conflict with the hosted sync description at the top.
 
 ## Change Log
+
+### 2026-11-19 — Verify the Railway deployment
+
+- Confirmed that Railway reported a successful deployment for `68370d9` on GitHub, closing the build failure recorded below.
+- Verified live GET responses from the Railway hostname. The classroom root returned 200, the database readiness probe at `/ready` returned 204, and anonymous access to `/api/v1/workspace` returned 401. These checks covered public serving, database connectivity and the authentication boundary. Signed-in sync was outside this smoke test.
 
 ### 2026-11-19 — Include the source required by the Railway Dockerfile
 
