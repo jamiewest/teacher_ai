@@ -1,0 +1,76 @@
+:root {
+  color-scheme: light dark;
+  --backdrop: #eff5f2;
+  --surface: #f5fbf8;
+  --ink: #181d1b;
+  --muted: #404944;
+  --line: #bfc9c2;
+  --primary: #006b5f;
+  --on-primary: #fff;
+  --error: #ba1a1a;
+  font: 16px/1.5 Roboto, "Helvetica Neue", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --backdrop: #191d1b;
+    --surface: #101412;
+    --ink: #e0e4df;
+    --muted: #bec9c2;
+    --line: #404944;
+    --primary: #87d5c6;
+    --on-primary: #00382f;
+    --error: #ffb4ab;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  min-height: 100svh;
+  margin: 0;
+  padding: 20px;
+  display: grid;
+  place-items: center;
+  background: var(--backdrop);
+  color: var(--ink);
+}
+main {
+  width: min(100%, 420px);
+  padding: clamp(24px, 5vw, 36px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+.school {
+  width: 24px;
+  height: 24px;
+  background: var(--primary);
+  clip-path: polygon(0 38%,50% 12%,100% 38%,100% 77%,92% 77%,92% 43%,50% 65%,0 38%,15% 46%,15% 67%,50% 87%,85% 67%,85% 47%,50% 66%,15% 46%);
+}
+h1 { font-size: 2rem; line-height: 1.25; font-weight: 400; margin: 28px 0 20px; }
+label { display: block; font-size: .875rem; font-weight: 500; color: var(--muted); margin-bottom: 6px; }
+input {
+  width: 100%;
+  min-height: 48px;
+  font: inherit;
+  color: var(--ink);
+  background: var(--backdrop);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+}
+button {
+  margin-top: 8px;
+  border: 0;
+  border-radius: 10px;
+  min-height: 44px;
+  padding: 10px 20px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font: 600 .875rem/1.5 Roboto, "Helvetica Neue", sans-serif;
+  cursor: pointer;
+}
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+button:hover { filter: brightness(1.08); }
+a { display: inline-block; color: var(--primary); margin-top: 16px; }
+[role=alert] { color: var(--error); margin: 0 0 12px; }

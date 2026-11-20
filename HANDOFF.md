@@ -44,6 +44,12 @@ From the 2026-11-19 architecture review (ordered by severity):
 
 ## Change Log
 
+### 2026-11-19 — Finish the local sign-in design handoff
+
+- Added the password form and light/dark stylesheet used by the local Dex preview under `backend/deploy/dex/`. They carry the classroom colors, type and form controls through the local sign-in flow. The Flutter entry screen and the Account & sync settings shipped in `68370d9`.
+- To apply the preview theme, copy `password.html` into `templates/` and `classroom.css` into `static/` under the Dex web directory selected by `frontend.dir`. Production identity-provider branding is configured separately.
+- Matched both files against the running Dex preview and checked the rendered form in Chrome at 360 × 640 in light mode and 1280 × 800 in dark mode. Both displayed the sign-in button in the viewport, loaded the expected theme color and fit without horizontal scrolling.
+
 ### 2026-11-19 — Verify the Railway deployment
 
 - Confirmed that Railway reported a successful deployment for `68370d9` on GitHub, closing the build failure recorded below.
