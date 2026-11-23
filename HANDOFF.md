@@ -14,7 +14,7 @@ Every AI commit must update this file **in the same commit**:
 
 ## Current State
 
-- The iOS runner has a Flutter bootstrap for Xcode Cloud. Activate merge-to-TestFlight delivery using the one-time Apple workflow setup in `ios/README.md`.
+- The GitHub Actions TestFlight workflow archives the Railway iOS app on pushes to `main` and uploads internal builds with managed build numbers. The GitHub `testflight` environment is restricted to `main` and holds the dedicated certificate private key. Apple credential and tester setup is in `ios/README.md`.
 
 - Railway serves the hosted Flutter client and .NET API together from the root `Dockerfile`. The deployment from `68370d9` passed its production readiness check on 2026-11-19. [Hosted classroom](https://teacherai-production-c48eb422.up.railway.app/)
 
@@ -26,7 +26,7 @@ Every AI commit must update this file **in the same commit**:
 
 ## Open Review Findings & Follow-Ups
 
-- iOS beta delivery awaits the first signed Xcode Cloud build and installation through the selected internal TestFlight group.
+- iOS beta delivery awaits the App Store Connect team API credentials, the workflow push to GitHub, and the first processed build in an internal TestFlight group with automatic distribution enabled.
 
 From the 2026-11-19 architecture review (ordered by severity):
 
@@ -48,6 +48,13 @@ From the 2026-11-19 architecture review (ordered by severity):
    - `README.md` still contains stale local-only statements in the Architecture table (line 79) and final paragraph (lines 216–220) that conflict with the hosted sync description at the top.
 
 ## Change Log
+
+### 2026-11-22 — Deploy Railway iOS builds to internal TestFlight from GitHub
+
+- Added `.github/workflows/testflight.yml` for pushes to `main` and manual runs there. Deployments queue while a previous upload is running. Codemagic CLI obtains the profile and distribution certificate for Runner, and Xcode manages build numbers on upload to handle retries and existing builds. Updated `ios/README.md` with Apple setup and access for testers.
+- Created the GitHub `testflight` environment, verified its deployment branch policy and stored a dedicated certificate private key for certificate reuse across runners.
+- Verified the workflow archive commands on a clean source export with Flutter 3.47.4, the locked dependencies, all five Railway settings and a local development provisioning profile. Xcode 27.2 produced a signed `app.teacherai.teacherAi` archive (0.1.0 build 24) that passed strict code signature verification. Checked the generated upload options and shell syntax. Actionlint 1.7.12 passed apart from its unrecognized `queue` property, verified against GitHub’s workflow syntax.
+- Distribution provisioning and the live upload await the Apple credentials and first push. The existing native Auth0 grant follow-up applies to sign-in after installation.
 
 ### 2026-11-20 — Prepare Railway-connected iPhone builds for TestFlight
 

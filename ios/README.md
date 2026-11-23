@@ -12,7 +12,28 @@ flutter run -d 'DEVICE_ID' --dart-define-from-file=ios/railway.json
 
 Sign in with the same account on the phone and in the hosted web app. To check sync, change a test class on one device and open **Settings → Account & sync → Sync now** on the other. A plain `flutter run` starts the local demo.
 
-## Deliver merges to TestFlight with Xcode Cloud
+## Deploy pushes to TestFlight
+
+Every push to `main` triggers **Deploy iOS to TestFlight** in GitHub Actions. The workflow signs the Railway build for internal testing and uploads it to App Store Connect. Xcode manages the uploaded build number, including on retries. You can also start the workflow manually on `main`. [Workflow](../.github/workflows/testflight.yml)
+
+### One-time setup
+
+1. In App Store Connect, select or create the iOS app for bundle ID `app.teacherai.teacherAi` on team `U352758U5C`. Under **TestFlight → Internal Testing**, create a group with **Enable automatic distribution** selected and add your testers. [Apple’s internal testing guide](https://developer.apple.com/help/app-store-connect/test-a-beta-version/add-internal-testers/)
+2. Under **Users and Access → Integrations → App Store Connect API → Team Keys**, create a dedicated team key with permission to create distribution certificates and App Store provisioning profiles and upload builds. Save the downloaded `.p8`, Key ID and Issuer ID. [Signing setup](https://docs.codemagic.io/yaml-code-signing/alternative-code-signing-methods/)
+3. In GitHub’s **Settings → Environments → testflight**, set the following environment secrets. The environment for `jamiewest/teacher_ai` already allows deployments from `main` and has its certificate private key. [Environment settings](https://github.com/jamiewest/teacher_ai/settings/environments)
+
+| Secret | Value |
+| --- | --- |
+| `APP_STORE_CONNECT_ISSUER_ID` | Issuer ID displayed above the team keys |
+| `APP_STORE_CONNECT_KEY_IDENTIFIER` | Key ID of the dedicated team key |
+| `APP_STORE_CONNECT_PRIVATE_KEY` | Full contents of the downloaded `.p8`, including the header, footer and newlines |
+| `CERTIFICATE_PRIVATE_KEY` | Existing RSA signing key used to create and reuse the distribution certificate. For a new environment, initialize it once with `openssl genrsa 2048 \| gh secret set CERTIFICATE_PRIVATE_KEY --env testflight`. |
+
+The first run uses the signing key to obtain an Apple Distribution certificate and an App Store provisioning profile. After the upload succeeds, check the build’s processing status under **App Store Connect → TestFlight** and complete any export compliance questions Apple displays. Testers receive the processed build through their group.
+
+If an Xcode Cloud workflow is already configured for this repository, disable its `main` start condition when switching to GitHub Actions to avoid uploading twice.
+
+## Optional Xcode Cloud workflow
 
 1. Put this revision on GitHub’s `main` branch so Apple can fetch the executable `ios/ci_scripts/ci_post_clone.sh`. The script installs Flutter 3.47.4 and prepares the Railway release configuration with Xcode Cloud’s build number.
 2. With an Apple Developer Program team, select or create the iOS app in App Store Connect using the Runner bundle ID `app.teacherai.teacherAi`. Under **TestFlight → Internal Testing**, create a group and add yourself or other team testers.

@@ -1,0 +1,75 @@
+name: Deploy iOS to TestFlight
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: testflight
+  queue: max
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: macos-26
+    environment: testflight
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Install signing tools
+        run: |
+          python -m pip install codemagic-cli-tools==0.71.0
+          ruby -rxcodeproj -e '' 2>/dev/null || gem install --user-install --no-document xcodeproj -v 1.27.0
+      - name: Set up App Store signing
+        env:
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APP_STORE_CONNECT_KEY_IDENTIFIER }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+          CERTIFICATE_PRIVATE_KEY: ${{ secrets.CERTIFICATE_PRIVATE_KEY }}
+        run: |
+          : "${APP_STORE_CONNECT_ISSUER_ID:?Set APP_STORE_CONNECT_ISSUER_ID in the testflight environment}"
+          : "${APP_STORE_CONNECT_KEY_IDENTIFIER:?Set APP_STORE_CONNECT_KEY_IDENTIFIER in the testflight environment}"
+          : "${APP_STORE_CONNECT_PRIVATE_KEY:?Set APP_STORE_CONNECT_PRIVATE_KEY in the testflight environment}"
+          : "${CERTIFICATE_PRIVATE_KEY:?Set CERTIFICATE_PRIVATE_KEY in the testflight environment}"
+          keychain initialize
+          app-store-connect fetch-signing-files app.teacherai.teacherAi \
+            --type IOS_APP_STORE --strict-match-identifier --create
+          keychain add-certificates
+          xcode-project use-profiles --project ios/Runner.xcodeproj \
+            --export-options-plist "$RUNNER_TEMP/TestFlight.plist" \
+            --custom-export-options '{"destination":"upload","testFlightInternalTestingOnly":true,"manageAppVersionAndBuildNumber":true}'
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: '3.47.4'
+          channel: stable
+      - name: Archive the Railway iOS app
+        run: |
+          flutter pub get --enforce-lockfile
+          flutter build ios --config-only --release --no-codesign --no-pub \
+            --dart-define-from-file=ios/railway.json --build-number="$GITHUB_RUN_NUMBER"
+          xcodebuild archive -workspace ios/Runner.xcworkspace -scheme Runner \
+            -configuration Release -destination generic/platform=iOS \
+            -archivePath "$RUNNER_TEMP/Runner.xcarchive"
+      - name: Upload internal TestFlight build
+        env:
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APP_STORE_CONNECT_KEY_IDENTIFIER }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: |
+          umask 077
+          key_path="$RUNNER_TEMP/AuthKey.p8"
+          trap 'rm -f "$key_path"' EXIT
+          printf '%s\n' "$APP_STORE_CONNECT_PRIVATE_KEY" > "$key_path"
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Runner.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/TestFlight.plist" -exportPath "$RUNNER_TEMP/upload" \
+            -authenticationKeyPath "$key_path" -authenticationKeyID "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" -allowProvisioningUpdates
