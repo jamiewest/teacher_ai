@@ -18,7 +18,7 @@ Every push to `main` triggers **Deploy iOS to TestFlight** in GitHub Actions. Th
 
 ### One-time setup
 
-1. In App Store Connect, select or create the iOS app for bundle ID `app.teacherai.teacherAi` on team `U352758U5C`. Under **TestFlight → Internal Testing**, create a group with **Enable automatic distribution** selected and add your testers. [Apple’s internal testing guide](https://developer.apple.com/help/app-store-connect/test-a-beta-version/add-internal-testers/)
+1. In App Store Connect, select or create the iOS app for bundle ID `dev.jamiewest.teacherai` on team `U352758U5C`. Under **TestFlight → Internal Testing**, create a group with **Enable automatic distribution** selected and add your testers. [Apple’s internal testing guide](https://developer.apple.com/help/app-store-connect/test-a-beta-version/add-internal-testers/)
 2. Under **Users and Access → Integrations → App Store Connect API → Team Keys**, create a dedicated team key with permission to create distribution certificates and App Store provisioning profiles and upload builds. Save the downloaded `.p8`, Key ID and Issuer ID. [Signing setup](https://docs.codemagic.io/yaml-code-signing/alternative-code-signing-methods/)
 3. In GitHub’s **Settings → Environments → testflight**, set the following environment secrets. The environment for `jamiewest/teacher_ai` already allows deployments from `main` and has its certificate private key. [Environment settings](https://github.com/jamiewest/teacher_ai/settings/environments)
 
@@ -36,7 +36,7 @@ If an Xcode Cloud workflow is already configured for this repository, disable it
 ## Optional Xcode Cloud workflow
 
 1. Put this revision on GitHub’s `main` branch so Apple can fetch the executable `ios/ci_scripts/ci_post_clone.sh`. The script installs Flutter 3.47.4 and prepares the Railway release configuration with Xcode Cloud’s build number.
-2. With an Apple Developer Program team, select or create the iOS app in App Store Connect using the Runner bundle ID `app.teacherai.teacherAi`. Under **TestFlight → Internal Testing**, create a group and add yourself or other team testers.
+2. With an Apple Developer Program team, select or create the iOS app in App Store Connect using the Runner bundle ID `dev.jamiewest.teacherai`. Under **TestFlight → Internal Testing**, create a group and add yourself or other team testers.
 3. Open `ios/Runner.xcworkspace` in Xcode. Select the **Runner** scheme and confirm the app target’s **Signing & Capabilities** shows the same team and automatic signing. Choose **Product → Xcode Cloud → Create Workflow** and connect the GitHub repository when prompted.
 4. Set **Start Conditions → Branch Changes** to `main`. Add an **Archive** action for **iOS / Runner** with **Deployment Preparation → TestFlight (Internal Testing Only)**. Add a **TestFlight Internal Testing** post-action and select the group from step 2.
 5. Start the first build on `main`. After Apple processes it, open TestFlight on the iPhone and accept the invitation. Subsequent merges trigger the same delivery. If App Store Connect requests export compliance information, complete it for the build.

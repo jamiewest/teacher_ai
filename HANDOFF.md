@@ -14,7 +14,7 @@ Every AI commit must update this file **in the same commit**:
 
 ## Current State
 
-- The GitHub Actions TestFlight workflow archives the Railway iOS app on pushes to `main` and uploads internal builds with managed build numbers. The GitHub `testflight` environment is restricted to `main` and holds the dedicated certificate private key. Apple credential and tester setup is in `ios/README.md`.
+- The GitHub Actions TestFlight workflow archives the Railway iOS app (`dev.jamiewest.teacherai`) on pushes to `main` and uploads internal builds with managed build numbers. The GitHub `testflight` environment is restricted to `main` and holds the dedicated certificate private key. Apple credential and tester setup is in `ios/README.md`.
 
 - Railway serves the hosted Flutter client and .NET API together from the root `Dockerfile`. The deployment from `68370d9` passed its production readiness check on 2026-11-19. [Hosted classroom](https://teacherai-production-c48eb422.up.railway.app/)
 
@@ -26,7 +26,7 @@ Every AI commit must update this file **in the same commit**:
 
 ## Open Review Findings & Follow-Ups
 
-- iOS beta delivery awaits the App Store Connect team API credentials, the workflow push to GitHub, and the first processed build in an internal TestFlight group with automatic distribution enabled.
+- iOS beta delivery requires an App Store Connect app record for `dev.jamiewest.teacherai` and awaits the team API credentials, the workflow push to GitHub, and the first processed build in an internal TestFlight group with automatic distribution enabled.
 
 From the 2026-11-19 architecture review (ordered by severity):
 
@@ -48,6 +48,12 @@ From the 2026-11-19 architecture review (ordered by severity):
    - `README.md` still contains stale local-only statements in the Architecture table (line 79) and final paragraph (lines 216–220) that conflict with the hosted sync description at the top.
 
 ## Change Log
+
+### 2026-11-22 — Change the iOS bundle ID to dev.jamiewest.teacherai
+
+- Updated Runner and RunnerTests across Debug, Profile and Release, plus the TestFlight workflow’s provisioning lookup and both iOS setup guides, to use the requested app identity.
+- Verified all six target configurations and Xcode’s effective Release identifiers. Archived the Railway app from a clean source export with locked Flutter dependencies and local development signing. The archived app reported `dev.jamiewest.teacherai` and passed strict code signature verification.
+- TestFlight delivery still requires the matching App Store Connect app record and Apple credentials.
 
 ### 2026-11-22 — Deploy Railway iOS builds to internal TestFlight from GitHub
 

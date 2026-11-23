@@ -41,7 +41,7 @@ jobs:
           : "${APP_STORE_CONNECT_PRIVATE_KEY:?Set APP_STORE_CONNECT_PRIVATE_KEY in the testflight environment}"
           : "${CERTIFICATE_PRIVATE_KEY:?Set CERTIFICATE_PRIVATE_KEY in the testflight environment}"
           keychain initialize
-          app-store-connect fetch-signing-files app.teacherai.teacherAi \
+          app-store-connect fetch-signing-files dev.jamiewest.teacherai \
             --type IOS_APP_STORE --strict-match-identifier --create
           keychain add-certificates
           xcode-project use-profiles --project ios/Runner.xcodeproj \
