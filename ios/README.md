@@ -14,7 +14,7 @@ Sign in with the same account on the phone and in the hosted web app. To check s
 
 ## Deploy pushes to TestFlight
 
-Every push to `main` triggers **Deploy iOS to TestFlight** in GitHub Actions. The workflow signs the Railway build for internal testing and uploads it to App Store Connect. Xcode manages the uploaded build number, including on retries. You can also start the workflow manually on `main`. [Workflow](../.github/workflows/testflight.yml)
+Every push to `main` triggers **Deploy iOS to TestFlight** in GitHub Actions. The workflow uploads a signed Railway build eligible for both internal and external TestFlight groups. Xcode manages the uploaded build number, including on retries. You can also start the workflow manually on `main`. [Workflow](../.github/workflows/testflight.yml)
 
 ### One-time setup
 
@@ -29,7 +29,7 @@ Every push to `main` triggers **Deploy iOS to TestFlight** in GitHub Actions. Th
 | `APP_STORE_CONNECT_PRIVATE_KEY` | Full contents of the downloaded `.p8`, including the header, footer and newlines |
 | `CERTIFICATE_PRIVATE_KEY` | Existing RSA signing key used to create and reuse the distribution certificate. For a new environment, initialize it once with `openssl genrsa 2048 \| gh secret set CERTIFICATE_PRIVATE_KEY --env testflight`. |
 
-The first run uses the signing key to obtain an Apple Distribution certificate and an App Store provisioning profile. After the upload succeeds, check the build’s processing status under **App Store Connect → TestFlight** and complete any export compliance questions Apple displays. Testers receive the processed build through their group.
+The first run uses the signing key to obtain an Apple Distribution certificate and an App Store provisioning profile. After the upload succeeds, check the build’s processing status under **App Store Connect → TestFlight** and complete any export compliance questions Apple displays. For external testing, add the processed build to a group under **TestFlight → External Testing** and submit it for TestFlight App Review. Once approved, invite testers by email or share the group’s public link. [Apple’s external testing guide](https://developer.apple.com/help/app-store-connect/test-a-beta-version/invite-external-testers/)
 
 If an Xcode Cloud workflow is already configured for this repository, disable its `main` start condition when switching to GitHub Actions to avoid uploading twice.
 

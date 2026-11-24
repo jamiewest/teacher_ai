@@ -14,7 +14,7 @@ Every AI commit must update this file **in the same commit**:
 
 ## Current State
 
-- The GitHub Actions TestFlight workflow archives the Railway iOS app (`dev.jamiewest.teacherai`) on pushes to `main` and uploads internal builds with managed build numbers. The GitHub `testflight` environment is restricted to `main` and holds the dedicated certificate private key. Apple credential and tester setup is in `ios/README.md`.
+- The GitHub Actions TestFlight workflow archives the Railway iOS app (`dev.jamiewest.teacherai`) on pushes to `main` and uploads builds eligible for internal and external testing with managed build numbers. The GitHub `testflight` environment is restricted to `main` and holds the dedicated certificate private key. Apple credential and tester setup is in `ios/README.md`.
 
 - Railway serves the hosted Flutter client and .NET API together from the root `Dockerfile`. The deployment from `68370d9` passed its production readiness check on 2026-11-19. [Hosted classroom](https://teacherai-production-c48eb422.up.railway.app/)
 
@@ -26,7 +26,7 @@ Every AI commit must update this file **in the same commit**:
 
 ## Open Review Findings & Follow-Ups
 
-- iOS beta delivery requires an App Store Connect app record for `dev.jamiewest.teacherai` and awaits the team API credentials, the workflow push to GitHub, and the first processed build in an internal TestFlight group with automatic distribution enabled.
+- The first internal TestFlight upload succeeded. External distribution requires a processed external-eligible build, assignment to an external group and TestFlight App Review.
 
 From the 2026-11-19 architecture review (ordered by severity):
 
@@ -48,6 +48,11 @@ From the 2026-11-19 architecture review (ordered by severity):
    - `README.md` still contains stale local-only statements in the Architecture table (line 79) and final paragraph (lines 216–220) that conflict with the hosted sync description at the top.
 
 ## Change Log
+
+### 2026-11-24 — Allow external TestFlight testing
+
+- Set `testFlightInternalTestingOnly` to false in the GitHub workflow so future uploads can be assigned to external tester groups. Updated the upload step name and the iOS guide with the review and invitation steps.
+- Parsed the workflow YAML and embedded export options, verifying the upload destination, managed build numbering and external eligibility. App Store Connect handles processing and beta review after upload.
 
 ### 2026-11-22 — Change the iOS bundle ID to dev.jamiewest.teacherai
 

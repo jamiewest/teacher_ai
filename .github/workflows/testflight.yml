@@ -46,7 +46,7 @@ jobs:
           keychain add-certificates
           xcode-project use-profiles --project ios/Runner.xcodeproj \
             --export-options-plist "$RUNNER_TEMP/TestFlight.plist" \
-            --custom-export-options '{"destination":"upload","testFlightInternalTestingOnly":true,"manageAppVersionAndBuildNumber":true}'
+            --custom-export-options '{"destination":"upload","testFlightInternalTestingOnly":false,"manageAppVersionAndBuildNumber":true}'
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           flutter-version: '3.47.4'
@@ -59,7 +59,7 @@ jobs:
           xcodebuild archive -workspace ios/Runner.xcworkspace -scheme Runner \
             -configuration Release -destination generic/platform=iOS \
             -archivePath "$RUNNER_TEMP/Runner.xcarchive"
-      - name: Upload internal TestFlight build
+      - name: Upload TestFlight build
         env:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APP_STORE_CONNECT_KEY_IDENTIFIER }}
